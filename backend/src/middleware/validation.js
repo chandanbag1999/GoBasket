@@ -151,40 +151,51 @@ const validationRules = {
       .trim()
       .isLength({ min: 2, max: 30 })
       .withMessage('Address title must be between 2 and 30 characters'),
-    
-    body('address')
+
+    body('addressLine1')
       .trim()
-      .isLength({ min: 10, max: 200 })
-      .withMessage('Address must be between 10 and 200 characters'),
-    
+      .isLength({ min: 10, max: 100 })
+      .withMessage('Address line 1 must be between 10 and 100 characters'),
+
+    body('addressLine2')
+      .optional()
+      .trim()
+      .isLength({ max: 100 })
+      .withMessage('Address line 2 cannot exceed 100 characters'),
+
     body('city')
       .trim()
       .isLength({ min: 2, max: 50 })
       .withMessage('City must be between 2 and 50 characters')
       .matches(/^[a-zA-Z\s]+$/)
       .withMessage('City can only contain letters and spaces'),
-    
+
     body('state')
       .trim()
       .isLength({ min: 2, max: 50 })
       .withMessage('State must be between 2 and 50 characters')
       .matches(/^[a-zA-Z\s]+$/)
       .withMessage('State can only contain letters and spaces'),
-    
+
     body('pincode')
       .matches(patterns.pincode)
       .withMessage('Please provide a valid 6-digit pincode'),
-    
+
     body('coordinates.latitude')
       .optional()
       .isFloat({ min: -90, max: 90 })
       .withMessage('Latitude must be between -90 and 90'),
-    
+
     body('coordinates.longitude')
       .optional()
       .isFloat({ min: -180, max: 180 })
       .withMessage('Longitude must be between -180 and 180'),
-    
+
+    body('isDefault')
+      .optional()
+      .isBoolean()
+      .withMessage('isDefault must be a boolean value'),
+
     handleValidationErrors
   ],
   
@@ -193,7 +204,16 @@ const validationRules = {
     param('id')
       .matches(patterns.objectId)
       .withMessage('Invalid ID format'),
-    
+
+    handleValidationErrors
+  ],
+
+  // Address ID parameter validation
+  addressIdParam: [
+    param('addressId')
+      .matches(patterns.objectId)
+      .withMessage('Invalid address ID format'),
+
     handleValidationErrors
   ],
   
@@ -214,6 +234,86 @@ const validationRules = {
       .isIn(['asc', 'desc', '1', '-1'])
       .withMessage('Sort must be asc, desc, 1, or -1'),
     
+    handleValidationErrors
+  ],
+
+  // Password change validation
+  changePassword: [
+  body('currentPassword')
+    .notEmpty()
+    .withMessage('Current password is required'),
+  
+  body('newPassword')
+    .isLength({ min: 8, max: 128 })
+    .withMessage('New password must be between 8 and 128 characters')
+    .matches(patterns.password)
+    .withMessage('New password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'),
+  
+    handleValidationErrors
+  ],
+
+  // OTP verification validation
+  verifyOTP: [
+  body('otp')
+    .isLength({ min: 6, max: 6 })
+    .withMessage('OTP must be 6 digits')
+    .isNumeric()
+    .withMessage('OTP must contain only numbers'),
+  
+    handleValidationErrors
+  ],
+
+  // Address update validation
+  updateAddress: [
+  body('title')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 30 })
+    .withMessage('Address title must be between 2 and 30 characters'),
+  
+  body('addressLine1')
+    .optional()
+    .trim()
+    .isLength({ min: 10, max: 100 })
+    .withMessage('Address line 1 must be between 10 and 100 characters'),
+  
+  body('addressLine2')
+    .optional()
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('Address line 2 cannot exceed 100 characters'),
+  
+  body('city')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('City must be between 2 and 50 characters')
+    .matches(/^[a-zA-Z\s]+$/)
+    .withMessage('City can only contain letters and spaces'),
+  
+  body('state')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('State must be between 2 and 50 characters')
+    .matches(/^[a-zA-Z\s]+$/)
+    .withMessage('State can only contain letters and spaces'),
+  
+  body('pincode')
+    .optional()
+    .matches(patterns.pincode)
+    .withMessage('Please provide a valid 6-digit pincode'),
+  
+  body('coordinates.latitude')
+    .optional()
+    .isFloat({ min: -90, max: 90 })
+    .withMessage('Latitude must be between -90 and 90'),
+  
+  body('coordinates.longitude')
+    .optional()
+    .isFloat({ min: -180, max: 180 })
+    .withMessage('Longitude must be between -180 and 180'),
+  
     handleValidationErrors
   ]
 };

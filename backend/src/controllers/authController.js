@@ -3,6 +3,10 @@ const redisClient = require('../config/redis');
 const logger = require('../utils/logger');
 const { validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
+const EmailService = require('../utils/emailService');
+const emailService = new EmailService();
+const crypto = require('crypto');
+const smsService = require('../utils/smsService');
 
 
 // Register user(POST /api/v1/auth/register)
@@ -82,6 +86,17 @@ exports.register = async (req, res) => {
     // Generate email verification token
     const emailVerificationToken = user.getEmailVerificationToken();
     await user.save({ validateBeforeSave: false });
+
+    // Send welcome email with verification
+    const emailResult = await emailService.sendWelcomeEmail(user, emailVerificationToken);
+
+    if (!emailResult.success) {
+      logger.warn('Welcome email failed to send', {
+        userId: user._id,
+        email: user.email,
+        error: emailResult.error
+      });
+    };
 
     // Cache user session in Redis
     await redisClient.set(`user_session_${user._id}`, {
@@ -486,5 +501,514 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
-// Export functions directly (they are already defined as exports.functionName)
-// No need for additional module.exports since we used exports.functionName syntax
+// Forgot password(POST /api/v1/auth/forgot-password)
+exports.forgotPassword = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation failed',
+        details: errors.array()
+      });
+    }
+
+    const { email } = req.body;
+
+    // Find user by email
+    const user = await User.findOne({ 
+      email: email.toLowerCase(),
+      isActive: true 
+    });
+
+    if (!user) {
+      // Don't reveal if email exists or not (security practice)
+      return res.status(200).json({
+        success: true,
+        message: 'If an account with that email exists, we have sent a password reset link.'
+      });
+    }
+
+    // Generate reset token
+    const resetToken = user.getResetPasswordToken();
+    await user.save({ validateBeforeSave: false });
+
+    try {
+      // Send password reset email
+      const emailResult = await emailService.sendPasswordResetEmail(user, resetToken);
+
+      if (!emailResult.success) {
+        // If email fails, remove the reset token
+        user.passwordResetToken = undefined;
+        user.passwordResetExpire = undefined;
+        await user.save({ validateBeforeSave: false });
+
+        return res.status(500).json({
+          success: false,
+          error: 'Email could not be sent. Please try again later.'
+        });
+      }
+
+      logger.info('Password reset email sent', {
+        userId: user._id,
+        email: user.email,
+        ip: req.ip
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Password reset link sent to your email address.',
+        ...(process.env.NODE_ENV === 'development' && {
+          resetToken // Only in development
+        })
+      });
+
+    } catch (error) {
+      user.passwordResetToken = undefined;
+      user.passwordResetExpire = undefined;
+      await user.save({ validateBeforeSave: false });
+
+      logger.error('Password reset email error:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Server error sending email'
+      });
+    }
+
+  } catch (error) {
+    logger.error('Forgot password error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error processing request'
+    });
+  }
+};
+
+// Reset password(PUT /api/v1/auth/reset-password/:token)
+exports.resetPassword = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation failed',
+        details: errors.array()
+      });
+    }
+
+    // Get hashed token
+    const resetPasswordToken = crypto
+      .createHash('sha256')
+      .update(req.params.token)
+      .digest('hex');
+
+    // Find user by token and check if token is still valid
+    const user = await User.findOne({
+      passwordResetToken: resetPasswordToken,
+      passwordResetExpire: { $gt: Date.now() },
+      isActive: true
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid or expired password reset token'
+      });
+    }
+
+    // Set new password
+    user.password = req.body.password;
+    user.passwordResetToken = undefined;
+    user.passwordResetExpire = undefined;
+
+    // Reset login attempts
+    user.loginAttempts.count = 0;
+    user.loginAttempts.lockedUntil = undefined;
+
+    await user.save();
+
+    // Generate new JWT token
+    const token = user.getSignedJwtToken();
+
+    // Cache user session
+    await redisClient.set(`user_session_${user._id}`, {
+      userId: user._id,
+      role: user.role,
+      email: user.email,
+      lastActivity: new Date(),
+      loginTime: new Date()
+    }, 86400);
+
+    logger.info('Password reset successful', {
+      userId: user._id,
+      email: user.email,
+      ip: req.ip
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Password reset successful. You are now logged in.',
+      token,
+      data: {
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role
+        }
+      }
+    });
+
+  } catch (error) {
+    logger.error('Reset password error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error resetting password'
+    });
+  }
+};
+
+// Change password (for logged in users)(PUT /api/v1/auth/change-password)
+
+exports.changePassword = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation failed',
+        details: errors.array()
+      });
+    }
+
+    const { currentPassword, newPassword } = req.body;
+
+    // Get user with password
+    const user = await User.findById(req.user._id).select('+password');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    // Check current password
+    const isCurrentPasswordMatch = await user.matchPassword(currentPassword);
+
+    if (!isCurrentPasswordMatch) {
+      return res.status(400).json({
+        success: false,
+        error: 'Current password is incorrect'
+      });
+    }
+
+    // Check if new password is different from current
+    const isSamePassword = await user.matchPassword(newPassword);
+    if (isSamePassword) {
+      return res.status(400).json({
+        success: false,
+        error: 'New password must be different from current password'
+      });
+    }
+
+    // Update password
+    user.password = newPassword;
+    await user.save();
+
+    logger.info('Password changed successfully', {
+      userId: user._id,
+      email: user.email,
+      ip: req.ip
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Password changed successfully'
+    });
+
+  } catch (error) {
+    logger.error('Change password error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error changing password'
+    });
+  }
+};
+
+// Verify email(GET /api/v1/auth/verify-email/:token)
+exports.verifyEmail = async (req, res) => {
+  try {
+    // Get hashed token
+    const emailVerificationToken = crypto
+      .createHash('sha256')
+      .update(req.params.token)
+      .digest('hex');
+
+    // Find user by token and check if token is still valid
+    const user = await User.findOne({
+      emailVerificationToken,
+      emailVerificationExpire: { $gt: Date.now() },
+      isActive: true
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid or expired email verification token'
+      });
+    }
+
+    // Mark email as verified
+    user.isEmailVerified = true;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpire = undefined;
+
+    await user.save({ validateBeforeSave: false });
+
+    // Send success email
+    await emailService.sendEmailVerificationSuccess(user);
+
+    logger.info('Email verified successfully', {
+      userId: user._id,
+      email: user.email,
+      ip: req.ip
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Email verified successfully! You can now access all features.',
+      data: {
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          isEmailVerified: user.isEmailVerified
+        }
+      }
+    });
+
+  } catch (error) {
+    logger.error('Email verification error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error verifying email'
+    });
+  }
+};
+
+// Resend email verification(POST /api/v1/auth/resend-verification)
+
+exports.resendEmailVerification = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    if (user.isEmailVerified) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email is already verified'
+      });
+    }
+
+    // Generate new verification token
+    const verificationToken = user.getEmailVerificationToken();
+    await user.save({ validateBeforeSave: false });
+
+    // Send verification email
+    const emailResult = await emailService.sendWelcomeEmail(user, verificationToken);
+
+    if (!emailResult.success) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to send verification email. Please try again.'
+      });
+    }
+
+    logger.info('Email verification resent', {
+      userId: user._id,
+      email: user.email,
+      ip: req.ip
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Verification email sent successfully! Please check your inbox.',
+      ...(process.env.NODE_ENV === 'development' && {
+        verificationToken
+      })
+    });
+
+  } catch (error) {
+    logger.error('Resend verification error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error sending verification email'
+    });
+  }
+};
+
+// Send phone OTP (POST /api/v1/auth/send-otp)
+exports.sendPhoneOTP = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    if (user.isPhoneVerified) {
+      return res.status(400).json({
+        success: false,
+        error: 'Phone number is already verified'
+      });
+    }
+
+    // Generate OTP
+    const otp = user.generatePhoneOTP();
+    await user.save({ validateBeforeSave: false });
+
+    // Send OTP via SMS
+    const smsResult = await smsService.sendOTP(user.phone, otp, user.name);
+
+    if (!smsResult.success) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to send OTP. Please try again.'
+      });
+    }
+
+    logger.info('Phone OTP sent', {
+      userId: user._id,
+      phone: user.phone,
+      ip: req.ip
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'OTP sent successfully! Please check your phone.',
+      data: {
+        phone: user.phone,
+        expiresIn: 5 // minutes
+      },
+      ...(process.env.NODE_ENV === 'development' && {
+        otp // Only in development
+      })
+    });
+
+  } catch (error) {
+    logger.error('Send OTP error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error sending OTP'
+    });
+  }
+};
+
+// Verify phone OTP (POST /api/v1/auth/verify-otp)
+exports.verifyPhoneOTP = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation failed',
+        details: errors.array()
+      });
+    }
+
+    const { otp } = req.body;
+
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    if (user.isPhoneVerified) {
+      return res.status(400).json({
+        success: false,
+        error: 'Phone number is already verified'
+      });
+    }
+
+    // Check if OTP exists and is not expired
+    if (!user.phoneVerificationOTP || !user.phoneVerificationExpire) {
+      return res.status(400).json({
+        success: false,
+        error: 'No OTP found. Please request a new OTP.'
+      });
+    }
+
+    if (user.phoneVerificationExpire < Date.now()) {
+      return res.status(400).json({
+        success: false,
+        error: 'OTP has expired. Please request a new OTP.'
+      });
+    }
+
+    // Hash the provided OTP and compare
+    const hashedOTP = crypto
+      .createHash('sha256')
+      .update(otp)
+      .digest('hex');
+
+    if (hashedOTP !== user.phoneVerificationOTP) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid OTP. Please try again.'
+      });
+    }
+
+    // Mark phone as verified
+    user.isPhoneVerified = true;
+    user.phoneVerificationOTP = undefined;
+    user.phoneVerificationExpire = undefined;
+
+    await user.save({ validateBeforeSave: false });
+
+    // Send welcome SMS
+    await smsService.sendWelcomeSMS(user.phone, user.name);
+
+    logger.info('Phone verified successfully', {
+      userId: user._id,
+      phone: user.phone,
+      ip: req.ip
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Phone number verified successfully! 🎉',
+      data: {
+        user: {
+          id: user._id,
+          name: user.name,
+          phone: user.phone,
+          isPhoneVerified: user.isPhoneVerified,
+          isEmailVerified: user.isEmailVerified
+        }
+      }
+    });
+
+  } catch (error) {
+    logger.error('Verify OTP error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error verifying OTP'
+    });
+  }
+};
+
+
