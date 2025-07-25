@@ -1,31 +1,29 @@
 const express = require('express');
 const cors = require('cors');
-const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
 
-// Import utilities
-const logger = require('./utils/logger');
+// Import security middleware
+const { rateLimits, securityHeaders, blockSuspiciousIPs } = require('./middleware/security');
+const { sanitizeInput } = require('./middleware/validation');
 const errorHandler = require('./middleware/errorHandler');
+const logger = require('./utils/logger');
+
+// Import routes
+const testRoutes = require('./routes/test');
+const authRoutes = require('./routes/auth');
 
 // Create Express application
 const app = express();
 
-// Trust proxy (important for deployment)
+// Trust proxy (important for deployment behind reverse proxy)
 app.set('trust proxy', 1);
 
-// Security middleware
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
-    },
-  },
-  crossOriginEmbedderPolicy: false
-}));
+// Block suspicious IPs first
+app.use(blockSuspiciousIPs);
+
+// Security headers
+app.use(securityHeaders);
 
 // CORS configuration
 app.use(cors({
@@ -36,32 +34,55 @@ app.use(cors({
     const allowedOrigins = [
       process.env.CLIENT_URL || 'http://localhost:3000',
       'http://localhost:3000',
-      'http://localhost:3001'
+      'http://localhost:3001',
+      'http://127.0.0.1:3000'
     ];
     
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      logger.warn('CORS blocked origin:', origin);
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining']
 }));
 
 // Compression middleware (reduces response size)
-app.use(compression());
+app.use(compression({
+  filter: (req, res) => {
+    // Don't compress responses if this request has a 'x-no-compression' header
+    if (req.headers['x-no-compression']) {
+      return false;
+    }
+    // Default compression filter
+    return compression.filter(req, res);
+  },
+  level: 6,
+  threshold: 1024
+}));
 
-// Body parsing middleware
+// Body parsing middleware with size limits
 app.use(express.json({ 
   limit: '10mb',
-  type: 'application/json'
+  type: 'application/json',
+  verify: (req, res, buf) => {
+    // Store raw body for webhook verification if needed
+    req.rawBody = buf;
+  }
 }));
+
 app.use(express.urlencoded({ 
   extended: true, 
-  limit: '10mb' 
+  limit: '10mb',
+  parameterLimit: 50
 }));
+
+// Input sanitization (remove HTML tags)
+app.use(sanitizeInput);
 
 // HTTP request logging
 app.use(morgan('combined', {
@@ -69,12 +90,15 @@ app.use(morgan('combined', {
     write: message => logger.info(message.trim()) 
   },
   skip: (req, res) => {
-    // Skip logging for health check endpoint
-    return req.originalUrl === '/health';
+    // Skip logging for health check and static files
+    return req.originalUrl === '/health' || req.originalUrl.startsWith('/static');
   }
 }));
 
-// Health check endpoint
+// Apply general rate limiting to all API routes
+app.use('/api', rateLimits.api);
+
+// Health check endpoint (no rate limiting)
 app.get('/health', (req, res) => {
   res.status(200).json({
     success: true,
@@ -82,22 +106,37 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     environment: process.env.NODE_ENV,
-    version: '1.0.0'
+    version: '1.0.0',
+    security: 'Enhanced security enabled'
   });
 });
 
-// API routes will be added here
-app.use('/api/v1', (req, res) => {
+
+// Mount routes
+app.use('/api/v1/test', testRoutes);
+app.use('/api/v1/auth', authRoutes);
+
+
+// API status endpoint
+app.get('/api/v1', (req, res) => {
   res.status(200).json({
     success: true,
-    message: 'Quick Commerce API v1.0 - Coming Soon! 🎯',
+    message: 'Quick Commerce API v1.0 with Enhanced Security! 🔒',
+    version: '1.0.0',
+    security: {
+      rateLimiting: 'Enabled',
+      inputValidation: 'Enabled',
+      securityHeaders: 'Enabled',
+      jwtAuth: 'Ready'
+    },
     endpoints: {
       auth: '/api/v1/auth',
       users: '/api/v1/users',
       products: '/api/v1/products',
       orders: '/api/v1/orders',
       restaurants: '/api/v1/restaurants'
-    }
+    },
+    documentation: '/api/v1/docs'
   });
 });
 
@@ -112,7 +151,8 @@ app.all('*', (req, res) => {
     success: false,
     error: `Route ${req.originalUrl} not found`,
     timestamp: new Date().toISOString(),
-    availableRoutes: ['/health', '/api/v1']
+    availableRoutes: ['/health', '/api/v1'],
+    method: req.method
   });
 });
 
