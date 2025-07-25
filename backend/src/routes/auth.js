@@ -1,6 +1,8 @@
 const express = require('express');
 const AuthController = require('../controllers/authController');
 const AddressController = require('../controllers/addressController');
+const upload = require('../config/multer');
+const FileHandler = require('../controllers/fileController');
 
 // Import middleware
 const { protect } = require('../middleware/auth');
@@ -56,6 +58,20 @@ router.put('/profile',
   protect,                           
   validationRules.updateProfile,     
   AuthController.updateProfile                      
+);
+
+// Avatar (single file)
+router.put('/avatar',
+  protect,
+  upload.single('avatar'),
+  FileHandler.uploadAvatar
+);
+
+// Restaurant docs (array, max 5 files)
+router.post('/documents',
+  protect,
+  upload.array('documents', 5),
+  FileHandler.uploadDocuments
 );
 
 router.put('/change-password',

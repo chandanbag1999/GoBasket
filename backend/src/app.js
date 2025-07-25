@@ -12,6 +12,7 @@ const logger = require('./utils/logger');
 // Import routes
 const testRoutes = require('./routes/test');
 const authRoutes = require('./routes/auth');
+const adminRoutes = require('./routes/admin');
 
 // Create Express application
 const app = express();
@@ -115,6 +116,7 @@ app.get('/health', (req, res) => {
 // Mount routes
 app.use('/api/v1/test', testRoutes);
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/admin', adminRoutes);
 
 
 // API status endpoint
