@@ -13,6 +13,8 @@ const logger = require('./utils/logger');
 const testRoutes = require('./routes/test');
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
+const categoryRoutes = require('./routes/categories');
+const productRoutes = require('./routes/products');
 
 // Create Express application
 const app = express();
@@ -67,7 +69,7 @@ app.use(compression({
 }));
 
 // Body parsing middleware with size limits
-app.use(express.json({ 
+app.use(express.json({
   limit: '10mb',
   type: 'application/json',
   verify: (req, res, buf) => {
@@ -76,10 +78,12 @@ app.use(express.json({
   }
 }));
 
-app.use(express.urlencoded({ 
-  extended: true, 
+// Only parse urlencoded data, not multipart/form-data (let multer handle that)
+app.use(express.urlencoded({
+  extended: true,
   limit: '10mb',
-  parameterLimit: 50
+  parameterLimit: 50,
+  type: 'application/x-www-form-urlencoded'
 }));
 
 // Input sanitization (remove HTML tags)
@@ -117,28 +121,30 @@ app.get('/health', (req, res) => {
 app.use('/api/v1/test', testRoutes);
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1/categories', categoryRoutes);
+app.use('/api/v1/products', productRoutes);
 
 
 // API status endpoint
 app.get('/api/v1', (req, res) => {
   res.status(200).json({
     success: true,
-    message: 'Quick Commerce API v1.0 with Enhanced Security! 🔒',
+    message: 'Quick Commerce API v1.0 with Product Management! 🍕',
     version: '1.0.0',
-    security: {
-      rateLimiting: 'Enabled',
-      inputValidation: 'Enabled',
-      securityHeaders: 'Enabled',
-      jwtAuth: 'Ready'
+    features: {
+      authentication: 'JWT-based with Redis caching',
+      userManagement: 'Multi-role system with profile management',
+      productManagement: 'Categories, products, variants, customizations',
+      fileUpload: 'Cloudinary integration for images',
+      search: 'Full-text search with filters'
     },
     endpoints: {
-      auth: '/api/v1/auth',
-      users: '/api/v1/users',
-      products: '/api/v1/products',
-      orders: '/api/v1/orders',
-      restaurants: '/api/v1/restaurants'
-    },
-    documentation: '/api/v1/docs'
+      auth: '/api/v1/auth/*',
+      categories: '/api/v1/categories/*',
+      products: '/api/v1/products/*',
+      admin: '/api/v1/admin/*',
+      test: '/api/v1/test/*'
+    }
   });
 });
 

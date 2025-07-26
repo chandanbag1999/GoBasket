@@ -33,6 +33,21 @@ const errorHandler = (err, req, res, next) => {
     error = { message, statusCode: 400 };
   }
 
+  // Multer errors
+  if (err instanceof Error && err.message.includes('File type not allowed')) {
+    error = { message: err.message, statusCode: 400 };
+  }
+
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    const message = 'File size too large. Maximum allowed size is 5MB';
+    error = { message, statusCode: 400 };
+  }
+
+  if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+    const message = 'Unexpected file field. Please check the field name';
+    error = { message, statusCode: 400 };
+  }
+
   // JWT errors
   if (err.name === 'JsonWebTokenError') {
     const message = 'Invalid token';

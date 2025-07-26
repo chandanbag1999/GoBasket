@@ -315,7 +315,69 @@ const validationRules = {
     .withMessage('Longitude must be between -180 and 180'),
   
     handleValidationErrors
+  ],
+
+  // Category validation
+  createCategory: [
+    body('name')
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('Category name must be between 2 and 50 characters')
+    .matches(/^[a-zA-Z0-9\s&'-]+$/)
+    .withMessage('Category name contains invalid characters'),
+  
+    body('description')
+    .optional()
+    .trim()
+    .isLength({ max: 200 })
+    .withMessage('Description cannot exceed 200 characters'),
+  
+    body('parentCategory')
+    .optional()
+    .matches(patterns.objectId)
+    .withMessage('Invalid parent category ID'),
+  
+    body('cuisine')
+    .optional()
+    .isIn(['Indian', 'Chinese', 'Italian', 'Mexican', 'Thai', 'Japanese', 'American', 'Continental', 'Fast Food', 'Desserts', 'Beverages'])
+    .withMessage('Invalid cuisine type'),
+  
+    handleValidationErrors
+  ],
+
+// Product validation
+  createProduct: [
+    body('name')
+    .trim()
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Product name must be between 2 and 100 characters'),
+  
+    body('description')
+    .trim()
+    .isLength({ min: 10, max: 1000 })
+    .withMessage('Description must be between 10 and 1000 characters'),
+  
+    body('category')
+    .matches(patterns.objectId)
+    .withMessage('Invalid category ID'),
+  
+    body('basePrice')
+    .isFloat({ min: 0 })
+    .withMessage('Base price must be a positive number'),
+  
+    body('preparationTime')
+    .optional()
+    .isInt({ min: 1, max: 180 })
+    .withMessage('Preparation time must be between 1 and 180 minutes'),
+  
+    body('spiceLevel')
+    .optional()
+    .isIn(['mild', 'medium', 'spicy', 'extra_spicy'])
+    .withMessage('Invalid spice level'),
+  
+    handleValidationErrors
   ]
+
 };
 
 // Sanitization middleware
