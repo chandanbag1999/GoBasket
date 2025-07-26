@@ -345,7 +345,7 @@ const validationRules = {
     handleValidationErrors
   ],
 
-// Product validation
+  // Product validation
   createProduct: [
     body('name')
     .trim()
@@ -376,8 +376,147 @@ const validationRules = {
     .withMessage('Invalid spice level'),
   
     handleValidationErrors
-  ]
+  ],
 
+  // Cart validation
+  addToCart: [
+    body('productId')
+      .matches(patterns.objectId)
+      .withMessage('Invalid product ID'),
+  
+    body('quantity')
+      .isInt({ min: 1, max: 10 })
+      .withMessage('Quantity must be between 1 and 10'),
+  
+    body('selectedVariant.name')
+      .optional()
+      .trim()
+      .isLength({ min: 1, max: 50 })
+      .withMessage('Variant name must be between 1 and 50 characters'),
+  
+    body('selectedVariant.price')
+      .optional()
+      .isFloat({ min: 0 })
+      .withMessage('Variant price must be a positive number'),
+  
+    body('specialInstructions')
+      .optional()
+      .trim()
+      .isLength({ max: 200 })
+      .withMessage('Special instructions cannot exceed 200 characters'),
+  
+    handleValidationErrors
+  ],
+
+  updateCartItem: [
+    body('quantity')
+      .optional()
+      .isInt({ min: 1, max: 10 })
+      .withMessage('Quantity must be between 1 and 10'),
+  
+    body('specialInstructions')
+      .optional()
+      .trim()
+      .isLength({ max: 200 })
+      .withMessage('Special instructions cannot exceed 200 characters'),
+  
+    handleValidationErrors
+  ],
+
+  setDeliveryAddress: [
+    body('addressId')
+      .matches(patterns.objectId)
+      .withMessage('Invalid address ID'),
+  
+    handleValidationErrors
+  ],
+
+  // Order validation
+  checkout: [
+    body('paymentMethod')
+      .isIn(['cash_on_delivery', 'online', 'wallet'])
+      .withMessage('Invalid payment method'),
+  
+    body('deliveryAddressId')
+      .optional()
+      .matches(patterns.objectId)
+      .withMessage('Invalid delivery address ID'),
+  
+    body('orderType')
+      .optional()
+      .isIn(['delivery', 'pickup'])
+      .withMessage('Invalid order type'),
+  
+    body('specialInstructions')
+      .optional()
+      .trim()
+      .isLength({ max: 500 })
+      .withMessage('Special instructions cannot exceed 500 characters'),
+  
+    handleValidationErrors
+  ],
+
+  updateOrderStatus: [
+    body('status')
+      .isIn(['pending', 'confirmed', 'preparing', 'ready', 'picked_up', 'out_for_delivery', 'delivered', 'cancelled', 'refunded'])
+      .withMessage('Invalid order status'),
+  
+    body('reason')
+      .optional()
+      .trim()
+      .isLength({ min: 5, max: 200 })
+      .withMessage('Reason must be between 5 and 200 characters'),
+  
+    body('notes')
+      .optional()
+      .trim()
+      .isLength({ max: 300 })
+      .withMessage('Notes cannot exceed 300 characters'),
+  
+    handleValidationErrors
+  ],
+
+  cancelOrder: [
+    body('reason')
+      .trim()
+      .isLength({ min: 5, max: 200 })
+      .withMessage('Cancellation reason must be between 5 and 200 characters'),
+  
+    handleValidationErrors
+  ],
+
+  assignDeliveryPersonnel: [
+    body('deliveryPersonnelId')
+      .matches(patterns.objectId)
+      .withMessage('Invalid delivery personnel ID'),
+  
+    handleValidationErrors
+  ],
+
+  addOrderRating: [
+    body('overall')
+      .isInt({ min: 1, max: 5 })
+      .withMessage('Overall rating must be between 1 and 5'),
+  
+    body('food')
+      .optional()
+      .isInt({ min: 1, max: 5 })
+      .withMessage('Food rating must be between 1 and 5'),
+  
+    body('delivery')
+      .optional()
+      .isInt({ min: 1, max: 5 })
+      .withMessage('Delivery rating must be between 1 and 5'),
+  
+    body('review')
+      .optional()
+      .trim()
+      .isLength({ max: 500 })
+      .withMessage('Review cannot exceed 500 characters'),
+  
+    handleValidationErrors
+  ],
+  
 };
 
 // Sanitization middleware
