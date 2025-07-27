@@ -14,8 +14,7 @@ const productSchema = new mongoose.Schema({
   slug: {
     type: String,
     unique: true,
-    lowercase: true,
-    index: true
+    lowercase: true
   },
 
   description: {
@@ -291,7 +290,7 @@ const productSchema = new mongoose.Schema({
 productSchema.index({ name: 1, status: 1 });
 productSchema.index({ restaurant: 1, status: 1 });
 productSchema.index({ category: 1, status: 1 });
-productSchema.index({ slug: 1 });
+// Note: slug index is automatically created by unique: true
 productSchema.index({ 'rating.average': -1 });
 productSchema.index({ basePrice: 1 });
 productSchema.index({ createdAt: -1 });
@@ -312,17 +311,27 @@ productSchema.index({
 
 // VIRTUAL FIELDS
 productSchema.virtual('defaultImage').get(function() {
+  // Check if images exist and is an array
+  if (!this.images || !Array.isArray(this.images) || this.images.length === 0) {
+    return null;
+  }
+
   const defaultImg = this.images.find(img => img.isDefault);
   return defaultImg || this.images[0] || null;
 });
 
 productSchema.virtual('discountedPrice').get(function() {
-  const activeOffer = this.offers.find(offer => 
-    offer.isActive && 
-    new Date() >= offer.validFrom && 
+  // Check if offers exist and is an array
+  if (!this.offers || !Array.isArray(this.offers) || this.offers.length === 0) {
+    return this.basePrice;
+  }
+
+  const activeOffer = this.offers.find(offer =>
+    offer.isActive &&
+    new Date() >= offer.validFrom &&
     new Date() <= offer.validTo
   );
-  
+
   if (activeOffer) {
     if (activeOffer.discountType === 'percentage') {
       return this.basePrice - (this.basePrice * activeOffer.discountValue / 100);
@@ -330,19 +339,28 @@ productSchema.virtual('discountedPrice').get(function() {
       return Math.max(0, this.basePrice - activeOffer.discountValue);
     }
   }
-  
+
   return this.basePrice;
 });
 
 productSchema.virtual('isOnOffer').get(function() {
-  return this.offers.some(offer => 
-    offer.isActive && 
-    new Date() >= offer.validFrom && 
+  // Check if offers exist and is an array
+  if (!this.offers || !Array.isArray(this.offers) || this.offers.length === 0) {
+    return false;
+  }
+
+  return this.offers.some(offer =>
+    offer.isActive &&
+    new Date() >= offer.validFrom &&
     new Date() <= offer.validTo
   );
 });
 
 productSchema.virtual('totalVariants').get(function() {
+  // Check if variants exist and is an array
+  if (!this.variants || !Array.isArray(this.variants)) {
+    return 0;
+  }
   return this.variants.length;
 });
 

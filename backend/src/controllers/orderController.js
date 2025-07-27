@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Product = require('../models/Product');
 const logger = require('../utils/logger');
 const { validationResult } = require('express-validator');
+const socketService = require('../services/socketService');
 
 // Place order from cart (Checkout)
 exports.checkout = async (req, res) => {
@@ -145,6 +146,7 @@ exports.checkout = async (req, res) => {
     });
 
     await order.save();
+    socketService.emitNewOrderNotification(order);
 
     // Mark cart as converted
     cart.status = 'converted';
@@ -287,8 +289,23 @@ exports.getMyOrders = async (req, res) => {
 // Get restaurant orders (Restaurant Owner)
 exports.getRestaurantOrders = async (req, res) => {
   try {
+    logger.info('Get restaurant orders request started', {
+      userId: req.user?._id,
+      userRole: req.user?.role,
+      query: req.query,
+      ip: req.ip
+    });
+
     const { page = 1, limit = 20, status } = req.query;
 
+    logger.info('Query parameters parsed', {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      status,
+      restaurantId: req.user._id
+    });
+
+    logger.info('Fetching restaurant orders from database');
     const orders = await Order.getRestaurantOrders(
       req.user._id,
       status,
@@ -296,11 +313,22 @@ exports.getRestaurantOrders = async (req, res) => {
       parseInt(limit)
     );
 
+    logger.info('Orders fetched successfully', {
+      ordersCount: orders.length,
+      restaurantId: req.user._id
+    });
+
+    logger.info('Counting total orders for pagination');
     const totalQuery = { restaurant: req.user._id };
     if (status) totalQuery.status = status;
     const total = await Order.countDocuments(totalQuery);
 
-    res.status(200).json({
+    logger.info('Total count calculated', {
+      total,
+      query: totalQuery
+    });
+
+    const response = {
       success: true,
       count: orders.length,
       pagination: {
@@ -312,13 +340,34 @@ exports.getRestaurantOrders = async (req, res) => {
       data: {
         orders
       }
+    };
+
+    logger.info('Restaurant orders fetched successfully', {
+      userId: req.user._id,
+      ordersCount: orders.length,
+      total,
+      page: parseInt(page)
     });
 
+    res.status(200).json(response);
+
   } catch (error) {
-    logger.error('Get restaurant orders error:', error);
+    logger.error('Get restaurant orders error:', {
+      error: error.message,
+      stack: error.stack,
+      userId: req.user?._id,
+      userRole: req.user?.role,
+      query: req.query
+    });
     res.status(500).json({
       success: false,
-      error: 'Server error fetching restaurant orders'
+      error: 'Server error fetching restaurant orders',
+      ...(process.env.NODE_ENV === 'development' && {
+        debug: {
+          message: error.message,
+          stack: error.stack
+        }
+      })
     });
   }
 };
@@ -383,6 +432,7 @@ exports.updateOrderStatus = async (req, res) => {
 
     // Update order status
     await order.updateStatus(status, req.user._id, reason, notes);
+    socketService.emitOrderStatusUpdate(order);
 
     // Populate for response
     await order.populate([
@@ -542,6 +592,7 @@ exports.assignDeliveryPersonnel = async (req, res) => {
 
     // Assign delivery personnel
     await order.assignDeliveryPersonnel(deliveryPersonnelId);
+    socketService.emitDeliveryAssignment(order);
 
     logger.info('Delivery personnel assigned to order', {
       orderId: order._id,
@@ -657,28 +708,62 @@ exports.addOrderRating = async (req, res) => {
 // Get order tracking details
 exports.getOrderTracking = async (req, res) => {
   try {
+    logger.info('Get order tracking request started', {
+      userId: req.user?._id,
+      orderId: req.params.orderId,
+      userRole: req.user?.role,
+      ip: req.ip
+    });
+
     const { orderId } = req.params;
+
+    logger.info('Fetching order details', { orderId });
 
     const order = await Order.findById(orderId)
       .populate('deliveryPersonnel', 'name phone deliveryProfile')
-      .select('orderNumber status statusHistory deliveryTracking estimatedDeliveryTime');
+      .select('orderNumber status statusHistory deliveryTracking estimatedDeliveryTime customer restaurant');
 
     if (!order) {
+      logger.warn('Order not found', { orderId });
       return res.status(404).json({
         success: false,
         error: 'Order not found'
       });
     }
 
+    logger.info('Order found', {
+      orderId: order._id,
+      orderNumber: order.orderNumber,
+      status: order.status,
+      customerId: order.customer?.toString(),
+      restaurantId: order.restaurant?.toString(),
+      deliveryPersonnelId: order.deliveryPersonnel?._id?.toString()
+    });
+
     // Check access permissions
     const hasAccess = (
-      order.customer.toString() === req.user._id.toString() ||
-      order.restaurant.toString() === req.user._id.toString() ||
-      order.deliveryPersonnel?._id.toString() === req.user._id.toString() ||
+      order.customer?.toString() === req.user._id.toString() ||
+      order.restaurant?.toString() === req.user._id.toString() ||
+      order.deliveryPersonnel?._id?.toString() === req.user._id.toString() ||
       ['admin', 'sub-admin'].includes(req.user.role)
     );
 
+    logger.info('Access permission check', {
+      userId: req.user._id.toString(),
+      userRole: req.user.role,
+      isCustomer: order.customer?.toString() === req.user._id.toString(),
+      isRestaurant: order.restaurant?.toString() === req.user._id.toString(),
+      isDeliveryPersonnel: order.deliveryPersonnel?._id?.toString() === req.user._id.toString(),
+      isAdmin: ['admin', 'sub-admin'].includes(req.user.role),
+      hasAccess
+    });
+
     if (!hasAccess) {
+      logger.warn('Access denied for order tracking', {
+        userId: req.user._id.toString(),
+        orderId,
+        userRole: req.user.role
+      });
       return res.status(403).json({
         success: false,
         error: 'Not authorized to track this order'
@@ -711,10 +796,22 @@ exports.getOrderTracking = async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Get order tracking error:', error);
+    logger.error('Get order tracking error:', {
+      error: error.message,
+      stack: error.stack,
+      userId: req.user?._id,
+      orderId: req.params?.orderId,
+      userRole: req.user?.role
+    });
     res.status(500).json({
       success: false,
-      error: 'Server error fetching order tracking'
+      error: 'Server error fetching order tracking',
+      ...(process.env.NODE_ENV === 'development' && {
+        debug: {
+          message: error.message,
+          stack: error.stack
+        }
+      })
     });
   }
 };

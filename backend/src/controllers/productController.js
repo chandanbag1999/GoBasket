@@ -145,7 +145,8 @@ exports.createProduct = async (req, res) => {
       ingredients,
       preparationTime,
       tags,
-      availabilitySchedule
+      availabilitySchedule,
+      status
     } = req.body;
 
     // Verify category exists
@@ -168,6 +169,10 @@ exports.createProduct = async (req, res) => {
       }
     }
 
+    // Validate status if provided
+    const validStatuses = ['draft', 'active', 'inactive', 'out_of_stock'];
+    const productStatus = status && validStatuses.includes(status) ? status : 'draft';
+
     // Create product
     const product = await Product.create({
       name: name.trim(),
@@ -189,7 +194,7 @@ exports.createProduct = async (req, res) => {
       preparationTime: preparationTime || 15,
       tags: tags || [],
       availabilitySchedule: availabilitySchedule || {},
-      status: 'draft' // Products start as draft
+      status: productStatus // Use status from request or default to 'draft'
     });
 
     // Populate for response

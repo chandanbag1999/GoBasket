@@ -383,28 +383,55 @@ const validationRules = {
     body('productId')
       .matches(patterns.objectId)
       .withMessage('Invalid product ID'),
-  
+
     body('quantity')
       .isInt({ min: 1, max: 10 })
       .withMessage('Quantity must be between 1 and 10'),
-  
+
     body('selectedVariant.name')
       .optional()
       .trim()
       .isLength({ min: 1, max: 50 })
       .withMessage('Variant name must be between 1 and 50 characters'),
-  
+
     body('selectedVariant.price')
       .optional()
       .isFloat({ min: 0 })
       .withMessage('Variant price must be a positive number'),
-  
+
+    body('customizations')
+      .optional()
+      .isArray()
+      .withMessage('Customizations must be an array'),
+
+    body('customizations.*.name')
+      .optional()
+      .trim()
+      .isLength({ min: 1, max: 100 })
+      .withMessage('Customization name must be between 1 and 100 characters'),
+
+    body('customizations.*.selectedOptions')
+      .optional()
+      .isArray()
+      .withMessage('Selected options must be an array'),
+
+    body('customizations.*.selectedOptions.*.name')
+      .optional()
+      .trim()
+      .isLength({ min: 1, max: 100 })
+      .withMessage('Option name must be between 1 and 100 characters'),
+
+    body('customizations.*.selectedOptions.*.price')
+      .optional()
+      .isFloat({ min: 0 })
+      .withMessage('Option price must be a positive number'),
+
     body('specialInstructions')
       .optional()
       .trim()
       .isLength({ max: 200 })
       .withMessage('Special instructions cannot exceed 200 characters'),
-  
+
     handleValidationErrors
   ],
 

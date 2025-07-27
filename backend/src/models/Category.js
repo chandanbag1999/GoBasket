@@ -14,8 +14,7 @@ const categorySchema = new mongoose.Schema({
   slug: {
     type: String,
     unique: true,
-    lowercase: true,
-    index: true
+    lowercase: true
   },
 
   description: {
@@ -112,7 +111,7 @@ const categorySchema = new mongoose.Schema({
 
 // INDEXES
 categorySchema.index({ name: 1, isActive: 1 });
-categorySchema.index({ slug: 1 });
+// Note: slug index is automatically created by unique: true
 categorySchema.index({ cuisine: 1, isActive: 1 });
 categorySchema.index({ displayOrder: 1, createdAt: -1 });
 categorySchema.index({ parentCategory: 1 });

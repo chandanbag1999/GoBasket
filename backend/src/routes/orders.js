@@ -18,6 +18,13 @@ router.post('/checkout',
 
 router.get('/my-orders', OrderController.getMyOrders);
 
+// Restaurant owner routes (MOVED BEFORE parameterized routes to avoid conflicts)
+router.get('/restaurant/orders',
+  authorize('restaurant-owner', 'admin', 'sub-admin'),
+  OrderController.getRestaurantOrders
+);
+
+// Parameterized routes (MOVED AFTER specific routes)
 router.get('/:orderId', OrderController.getOrder);
 
 router.get('/:orderId/tracking', OrderController.getOrderTracking);
@@ -30,12 +37,6 @@ router.put('/:orderId/cancel',
 router.post('/:orderId/rating',
   validationRules.addOrderRating,
   OrderController.addOrderRating
-);
-
-// Restaurant owner routes
-router.get('/restaurant/orders',
-  authorize('restaurant-owner', 'admin', 'sub-admin'),
-  OrderController.getRestaurantOrders
 );
 
 router.put('/:orderId/status',

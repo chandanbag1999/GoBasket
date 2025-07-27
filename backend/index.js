@@ -5,6 +5,7 @@ const app = require('./src/app');
 const connectDB = require('./src/config/database');
 const redisClient = require('./src/config/redis');
 const logger = require('./src/utils/logger');
+const socketService = require('./src/services/socketService');
 
 // Handle uncaught exceptions (should be at the top)
 process.on('uncaughtException', (err) => {
@@ -37,6 +38,9 @@ const startServer = async () => {
       const message = `🚀 Server running in ${process.env.NODE_ENV} mode on port ${PORT}`;
       console.log(message);
       logger.info(message);
+
+      // Initialize Socket.io
+      socketService.initialize(server);
       
       // Log important information
       logger.info('Server startup completed', {

@@ -57,8 +57,7 @@ const orderSchema = new mongoose.Schema({
   // Order identification
   orderNumber: {
     type: String,
-    unique: true,
-    index: true
+    unique: true
   },
   
   // Customer information
@@ -247,7 +246,7 @@ const orderSchema = new mongoose.Schema({
 });
 
 // INDEXES for better performance
-orderSchema.index({ orderNumber: 1 });
+// Note: orderNumber index is automatically created by unique: true
 orderSchema.index({ customer: 1, createdAt: -1 });
 orderSchema.index({ restaurant: 1, createdAt: -1 });
 orderSchema.index({ status: 1, createdAt: -1 });

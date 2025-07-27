@@ -1,5 +1,5 @@
 const express = require('express');
-const artController = require('../controllers/cartController');
+const CartController = require('../controllers/cartController');
 
 // Middleware
 const { protect } = require('../middleware/auth');
@@ -11,30 +11,30 @@ const router = express.Router();
 router.use(protect);
 
 // Get user's cart
-router.get('/', artController.getCart);
+router.get('/', CartController.getCart);
 
 // Add item to cart
 router.post('/items', 
   validationRules.addToCart,
-  artController.addToCart
+  CartController.addToCart
 );
 
 // Update cart item
 router.put('/items/:itemId',
   validationRules.updateCartItem,
-  artController.updateCartItem
+  CartController.updateCartItem
 );
 
 // Remove item from cart
-router.delete('/items/:itemId', artController.removeFromCart);
+router.delete('/items/:itemId', CartController.removeFromCart);
 
 // Clear entire cart
-router.delete('/', clearCart);
+router.delete('/', CartController.clearCart);
 
 // Set delivery address
 router.put('/delivery-address',
   validationRules.setDeliveryAddress,
-  artController.setDeliveryAddress
+  CartController.setDeliveryAddress
 );
 
 module.exports = router;

@@ -123,8 +123,7 @@ const cartSchema = new mongoose.Schema({
   // Expiry (carts expire after 24 hours of inactivity)
   expiresAt: {
     type: Date,
-    default: () => new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-    index: { expireAfterSeconds: 0 }
+    default: () => new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
   }
   
 }, {
@@ -201,21 +200,33 @@ cartSchema.methods.calculateItemPrice = function(item) {
 
 cartSchema.methods.addItem = function(itemData) {
   const { unitPrice, totalPrice } = this.calculateItemPrice(itemData);
-  
+
   // Check if same item already exists
-  const existingItemIndex = this.items.findIndex(item => 
+  const existingItemIndex = this.items.findIndex(item =>
     item.product.toString() === itemData.product.toString() &&
     JSON.stringify(item.selectedVariant) === JSON.stringify(itemData.selectedVariant) &&
     JSON.stringify(item.customizations) === JSON.stringify(itemData.customizations)
   );
-  
+
   if (existingItemIndex !== -1) {
     // Update existing item quantity
-    this.items[existingItemIndex].quantity += itemData.quantity;
+    const newQuantity = this.items[existingItemIndex].quantity + itemData.quantity;
+
+    // Validate quantity limits
+    if (newQuantity > 10) {
+      throw new Error(`Cannot add ${itemData.quantity} items. Maximum 10 items allowed per product variant. Current quantity: ${this.items[existingItemIndex].quantity}`);
+    }
+
+    this.items[existingItemIndex].quantity = newQuantity;
     const updatedPrices = this.calculateItemPrice(this.items[existingItemIndex]);
     this.items[existingItemIndex].unitPrice = updatedPrices.unitPrice;
     this.items[existingItemIndex].totalPrice = updatedPrices.totalPrice;
   } else {
+    // Validate quantity for new item
+    if (itemData.quantity > 10) {
+      throw new Error(`Cannot add ${itemData.quantity} items. Maximum 10 items allowed per product variant.`);
+    }
+
     // Add new item
     this.items.push({
       ...itemData,
@@ -223,7 +234,7 @@ cartSchema.methods.addItem = function(itemData) {
       totalPrice
     });
   }
-  
+
   return this.save();
 };
 
