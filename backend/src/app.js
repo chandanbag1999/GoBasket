@@ -4,7 +4,8 @@ const compression = require('compression');
 const morgan = require('morgan');
 
 // Import security middleware
-const { rateLimits, securityHeaders, blockSuspiciousIPs } = require('./middleware/security');
+const { rateLimitStrategies } = require('./middleware/advancedRateLimit');
+const { securityHeaders, blockSuspiciousIPs } = require('./middleware/security');
 const { sanitizeInput } = require('./middleware/validation');
 const errorHandler = require('./middleware/errorHandler');
 const logger = require('./utils/logger');
@@ -12,11 +13,13 @@ const logger = require('./utils/logger');
 // Import routes
 const testRoutes = require('./routes/test');
 const authRoutes = require('./routes/auth');
-const adminRoutes = require('./routes/admin');
 const categoryRoutes = require('./routes/categories');
 const productRoutes = require('./routes/products');
 const cartRoutes = require('./routes/cart');
 const orderRoutes = require('./routes/orders');
+const paymentRoutes = require('./routes/payments');
+const analyticsRoutes = require('./routes/analytics');
+const adminRoutes = require('./routes/admin');
 
 // Create Express application
 const app = express();
@@ -56,29 +59,13 @@ app.use(cors({
   exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining']
 }));
 
-// Compression middleware (reduces response size)
-app.use(compression({
-  filter: (req, res) => {
-    // Don't compress responses if this request has a 'x-no-compression' header
-    if (req.headers['x-no-compression']) {
-      return false;
-    }
-    // Default compression filter
-    return compression.filter(req, res);
-  },
-  level: 6,
-  threshold: 1024
-}));
+// Compression middleware
+app.use(compression());
 
-// Body parsing middleware with size limits
-app.use(express.json({
-  limit: '10mb',
-  type: 'application/json',
-  verify: (req, res, buf) => {
-    // Store raw body for webhook verification if needed
-    req.rawBody = buf;
-  }
-}));
+// Body parsing middleware
+app.use(express.json({ limit: '10mb', type: 'application/json' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
 
 // Only parse urlencoded data, not multipart/form-data (let multer handle that)
 app.use(express.urlencoded({
@@ -103,7 +90,7 @@ app.use(morgan('combined', {
 }));
 
 // Apply general rate limiting to all API routes
-app.use('/api', rateLimits.api);
+app.use('/api', rateLimitStrategies.api);
 
 // Health check endpoint (no rate limiting)
 app.get('/health', (req, res) => {
@@ -114,40 +101,68 @@ app.get('/health', (req, res) => {
     uptime: process.uptime(),
     environment: process.env.NODE_ENV,
     version: '1.0.0',
-    security: 'Enhanced security enabled'
+    features: {
+      authentication: 'Enabled',
+      rateLimiting: 'Enabled',
+      caching: 'Enabled',
+      queues: 'Enabled',
+      analytics: 'Enabled',
+      realTime: 'Enabled'
+    }
   });
 });
 
 
 // Mount routes
 app.use('/api/v1/test', testRoutes);
-app.use('/api/v1/auth', authRoutes);
-app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1/auth', rateLimitStrategies.authentication, authRoutes);
 app.use('/api/v1/categories', categoryRoutes);
-app.use('/api/v1/products', productRoutes);
+app.use('/api/v1/products', rateLimitStrategies.search, productRoutes);
 app.use('/api/v1/cart', cartRoutes);
-app.use('/api/v1/orders', orderRoutes);
+app.use('/api/v1/orders', rateLimitStrategies.orderPlacement, orderRoutes);
+app.use('/api/v1/payments', rateLimitStrategies.payment, paymentRoutes);
+app.use('/api/v1/analytics', analyticsRoutes);
+app.use('/api/v1/admin', adminRoutes);
 
 
+// API status endpoint
 // API status endpoint
 app.get('/api/v1', (req, res) => {
   res.status(200).json({
     success: true,
-    message: 'Quick Commerce API v1.0 with Product Management! 🍕',
+    message: 'Quick Commerce API v1.0 - Production Ready! 🎯',
     version: '1.0.0',
     features: {
-      authentication: 'JWT-based with Redis caching',
-      userManagement: 'Multi-role system with profile management',
+      authentication: 'JWT-based with Redis caching & rate limiting',
+      userManagement: 'Multi-role system with comprehensive profiles',
       productManagement: 'Categories, products, variants, customizations',
-      fileUpload: 'Cloudinary integration for images',
-      search: 'Full-text search with filters'
+      orderManagement: 'Complete lifecycle with real-time tracking',
+      paymentGateway: 'Razorpay integration (UPI, Cards, NetBanking, Wallets)',
+      queueSystem: 'Background job processing with Bull & Redis',
+      notifications: 'Email & SMS via queues',
+      analytics: 'Advanced business intelligence dashboard',
+      caching: 'Redis-based multi-layer caching strategy',
+      rateLimiting: 'Advanced rate limiting with Redis store',
+      fileUpload: 'Cloudinary integration with optimization',
+      realTime: 'Socket.io for live order tracking',
+      security: 'Comprehensive security headers & input validation'
     },
     endpoints: {
-      auth: '/api/v1/auth/*',
-      categories: '/api/v1/categories/*',
-      products: '/api/v1/products/*',
-      admin: '/api/v1/admin/*',
-      test: '/api/v1/test/*'
+      auth: '/api/v1/auth/* (Login, Register, Profile)',
+      categories: '/api/v1/categories/* (Category management)',
+      products: '/api/v1/products/* (Product catalog)',
+      cart: '/api/v1/cart/* (Shopping cart)',
+      orders: '/api/v1/orders/* (Order management)',
+      payments: '/api/v1/payments/* (Payment processing)',
+      analytics: '/api/v1/analytics/* (Business analytics)',
+      admin: '/api/v1/admin/* (Admin operations)'
+    },
+    architecture: {
+      database: 'MongoDB with optimized indexes',
+      cache: 'Redis for caching & sessions',
+      queue: 'Bull queues for background processing',
+      storage: 'Cloudinary for file management',
+      realTime: 'Socket.io for live updates'
     }
   });
 });
@@ -163,7 +178,18 @@ app.all('*', (req, res) => {
     success: false,
     error: `Route ${req.originalUrl} not found`,
     timestamp: new Date().toISOString(),
-    availableRoutes: ['/health', '/api/v1'],
+    availableRoutes: [
+      '/health',
+      '/api/v1',
+      '/api/v1/auth/*',
+      '/api/v1/categories/*',
+      '/api/v1/products/*',
+      '/api/v1/cart/*',
+      '/api/v1/orders/*',
+      '/api/v1/payments/*',
+      '/api/v1/analytics/*',
+      '/api/v1/admin/*'
+    ],
     method: req.method
   });
 });
