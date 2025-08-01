@@ -2,15 +2,16 @@
 export const ROUTES = {
   // Public Routes
   HOME: '/',
-  LOGIN: '/login',
-  REGISTER: '/register',
-  FORGOT_PASSWORD: '/forgot-password',
-  RESET_PASSWORD: '/reset-password',
+  LOGIN: '/auth/login',
+  REGISTER: '/auth/register',
+  FORGOT_PASSWORD: '/auth/forgot-password',
+  RESET_PASSWORD: '/auth/reset-password',
   
   // Product Routes
   PRODUCTS: '/products',
   PRODUCT_DETAIL: '/products/:id',
   CATEGORY: '/category/:slug',
+  CATEGORIES: '/categories',
   SEARCH: '/search',
   
   // User Routes
@@ -214,8 +215,16 @@ export const API_CONFIG = {
 export const APP_CONFIG = {
   // App Info
   APP_NAME: 'GoBasket',
+  name: 'GoBasket', // Alias for compatibility
   APP_VERSION: '1.0.0',
   APP_DESCRIPTION: 'Quick Commerce Grocery Delivery App',
+
+  // Contact Information
+  contact: {
+    phone: '+91 98765 43210',
+    email: 'support@gobasket.com',
+    address: 'Mumbai, Maharashtra, India'
+  },
   
   // Feature Flags
   FEATURES: {

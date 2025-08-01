@@ -51,7 +51,7 @@ class SocketService {
       this.handleConnection(socket);
     });
 
-    logger.info('Socket.io initialized successfully');
+    logger.info('Socket.io initialized');
   }
 
   handleConnection(socket) {

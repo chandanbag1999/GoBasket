@@ -1,11 +1,8 @@
-// Layout Components Barrel Export
-// This file exports all layout components for easy importing
-
+// Layout Components Export
+export { default as AppLayout } from './AppLayout';
+export { default as AuthLayout } from './AuthLayout';
+export { default as Header } from './Header';
+export { default as Footer } from './Footer';
+export { default as BottomNavigation } from './BottomNavigation';
+export { default as Breadcrumb } from './Breadcrumb';
 export { default as Container } from './Container';
-
-// TODO: Add other layout components as they are created
-// export { default as Header } from './Header';
-// export { default as Footer } from './Footer';
-// export { default as Sidebar } from './Sidebar';
-// export { default as Layout } from './Layout';
-// export { default as Navigation } from './Navigation';

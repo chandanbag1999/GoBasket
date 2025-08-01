@@ -1,19 +1,20 @@
 import React, { forwardRef } from 'react';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { inputVariants, type InputVariants } from '@/lib/variants';
 
 /**
  * Input Component Props Interface
- * Extends standard HTML input attributes with custom props
+ * Enhanced with our variant system for consistent styling
  */
-interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement>, InputVariants {
   label?: string;
   error?: string;
   helperText?: string;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
   showPasswordToggle?: boolean;
-  fullWidth?: boolean;
 }
 
 /**
@@ -37,9 +38,10 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
   leftIcon,
   rightIcon,
   showPasswordToggle = false,
-  fullWidth = false,
+  size = 'default',
+  variant = 'default',
   type = 'text',
-  className = '',
+  className,
   id,
   ...props
 }, ref) => {
@@ -54,36 +56,19 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
     ? (showPassword ? 'text' : 'password') 
     : type;
 
-  // Base input styles
-  const baseInputStyles = `
-    block w-full px-3 py-2.5 text-sm text-gray-900 bg-white border rounded-lg
-    transition-all duration-200 placeholder-gray-500
-    focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent
-    disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed
-    min-h-[44px] // Touch-friendly height
-  `;
-
-  // Error state styles
-  const errorStyles = error 
-    ? 'border-red-500 focus:ring-red-500' 
-    : 'border-gray-300 hover:border-gray-400';
-
-  // Icon padding adjustments
-  const leftPadding = leftIcon ? 'pl-10' : 'pl-3';
-  const rightPadding = (rightIcon || showPasswordToggle) ? 'pr-10' : 'pr-3';
-
-  // Combine input classes
-  const inputClasses = `
-    ${baseInputStyles}
-    ${errorStyles}
-    ${leftPadding}
-    ${rightPadding}
-    ${fullWidth ? 'w-full' : ''}
-    ${className}
-  `.trim();
+  // Use our variant system for consistent styling
+  const inputClasses = cn(
+    inputVariants({
+      size,
+      variant: error ? 'error' : variant
+    }),
+    leftIcon && 'pl-10',
+    (rightIcon || showPasswordToggle) && 'pr-10',
+    className
+  );
 
   return (
-    <div className={`${fullWidth ? 'w-full' : ''}`}>
+    <div className="w-full">
       {/* Label */}
       {label && (
         <label 

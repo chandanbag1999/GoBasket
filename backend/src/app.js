@@ -11,7 +11,6 @@ const errorHandler = require('./middleware/errorHandler');
 const logger = require('./utils/logger');
 
 // Import routes
-const testRoutes = require('./routes/test');
 const authRoutes = require('./routes/auth');
 const categoryRoutes = require('./routes/categories');
 const productRoutes = require('./routes/products');
@@ -40,9 +39,11 @@ app.use(cors({
     if (!origin) return callback(null, true);
     
     const allowedOrigins = [
-      process.env.CLIENT_URL || 'http://localhost:3000',
+      process.env.CLIENT_URL || 'http://localhost:5173',
+      'http://localhost:5173',
       'http://localhost:3000',
       'http://localhost:3001',
+      'http://127.0.0.1:5173',
       'http://127.0.0.1:3000'
     ];
     
@@ -114,7 +115,6 @@ app.get('/health', (req, res) => {
 
 
 // Mount routes
-app.use('/api/v1/test', testRoutes);
 app.use('/api/v1/auth', rateLimitStrategies.authentication, authRoutes);
 app.use('/api/v1/categories', categoryRoutes);
 app.use('/api/v1/products', rateLimitStrategies.search, productRoutes);

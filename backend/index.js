@@ -7,7 +7,7 @@ const redisClient = require('./src/config/redis');
 const logger = require('./src/utils/logger');
 const socketService = require('./src/services/socketService');
 const QueueWorkers = require('./src/workers/queueWorkers');
-const { cacheWarming } = require('./src/middleware/cache');
+// const { cacheWarming } = require('./src/middleware/cache');
 
 // Handle uncaught exceptions (should be at the top)
 process.on('uncaughtException', (err) => {
@@ -23,56 +23,43 @@ const queueWorkers = new QueueWorkers();
 // start server
 const startServer = async () => {
   try {
-    // Connect to MongoDB
-    console.log('🔄 Connecting to MongoDB...');
+    // Initialize services
+    console.log('🚀 Starting GoBasket API Server...');
+
+    // Connect to database
     await connectDB();
 
-    // Test Redis connection
-    console.log('🔄 Testing Redis connection...');
-    const redisHealthy = await redisClient.ping();
-    if (redisHealthy) {
-      console.log('✅ Redis connection successful');
-      logger.info('Redis connection verified');
-    } else {
-      console.warn('⚠️  Redis connection failed, but server will continue');
-      logger.warn('Redis connection failed during startup');
+    // Initialize Redis & Queue Workers (if enabled)
+    if (process.env.REDIS_ENABLED === 'true') {
+      try {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const redisHealthy = await redisClient.ping();
+        if (redisHealthy) {
+          queueWorkers.startAllWorkers();
+          logger.info('Redis Cloud & queue workers initialized');
+        }
+      } catch (error) {
+        logger.warn('Redis Cloud connection failed, continuing without cache');
+      }
     }
 
-    // Start queue workers
-    console.log('🔄 Starting background queue workers...');
-    queueWorkers.startAllWorkers();
-    console.log('✅ Queue workers started successfully');
 
-    // Warm up caches
-    console.log('🔄 Warming up caches...');
-    await cacheWarming.warmAllCaches();
-    console.log('✅ Cache warming completed');
+
+    // Warm up caches (optional) - Disabled for now
+    // console.log('🔄 Warming up caches...');
+    // try {
+    //   await cacheWarming.warmAllCaches();
+    //   console.log('✅ Cache warming completed');
+    // } catch (error) {
+    //   console.warn('⚠️  Cache warming failed, continuing without cache');
+    //   logger.warn('Cache warming failed, continuing without cache');
+    // }
 
     // Start HTTP server
     const PORT = process.env.PORT || 5000;
     const server = app.listen(PORT, () => {
-      const message = `🚀 Server running in ${process.env.NODE_ENV} mode on port ${PORT}`;
-      console.log(message);
-      logger.info(message);
-
-      // Log important information
-      logger.info('Server startup completed with advanced features', {
-        port: PORT,
-        environment: process.env.NODE_ENV,
-        nodeVersion: process.version,
-        features: [
-          'Authentication & Authorization',
-          'Product Management',
-          'Order Management',
-          'Payment Gateway (Razorpay)',
-          'Queue Processing',
-          'Real-time Updates (Socket.io)',
-          'Advanced Analytics',
-          'Caching Strategy',
-          'Rate Limiting',
-          'File Upload (Cloudinary)'
-        ]
-      });
+      console.log(`✅ GoBasket API ready on port ${PORT}`);
+      logger.info(`Server started on port ${PORT} in ${process.env.NODE_ENV} mode`);
     });
 
     // Initialize Socket.io

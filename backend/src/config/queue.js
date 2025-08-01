@@ -2,18 +2,27 @@ const Queue = require('bull');
 const redis = require('ioredis');
 const logger = require('../utils/logger');
 
-// Create Redis connection for queues
-const redisConfig = process.env.REDIS_URL || {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: process.env.REDIS_PORT || 6379,
-  password: process.env.REDIS_PASSWORD,
-  maxRetriesPerRequest: null,
-  enableReadyCheck: false,
-  retryDelayOnFailover: 100,
-};
+// Check if Redis is enabled
+const isRedisEnabled = process.env.REDIS_ENABLED === 'true';
 
-// Initialize different queues for different purposes
-const queues = {
+let queues = {};
+
+if (isRedisEnabled) {
+  // Create Redis connection for queues (Redis Cloud)
+  const redisConfig = process.env.REDIS_URL || {
+    host: process.env.REDIS_HOST || 'localhost',
+    port: process.env.REDIS_PORT || 6379,
+    password: process.env.REDIS_PASSWORD,
+    maxRetriesPerRequest: null,
+    enableReadyCheck: false,
+    retryDelayOnFailover: 100,
+    connectTimeout: 15000,
+    lazyConnect: false,
+    family: 4,
+  };
+
+  // Initialize different queues for different purposes
+  queues = {
   // Email notifications queue
   emailQueue: new Queue('email notifications', {
     redis: redisConfig,
@@ -80,10 +89,10 @@ const queues = {
       delay: 5000,           // 5 second delay for analytics
     },
   }),
-};
+  };
 
-// Queue event listeners for monitoring
-Object.keys(queues).forEach(queueName => {
+  // Queue event listeners for monitoring
+  Object.keys(queues).forEach(queueName => {
   const queue = queues[queueName];
   
   queue.on('completed', (job, result) => {
@@ -114,12 +123,22 @@ Object.keys(queues).forEach(queueName => {
       jobType: job.name
     });
   });
-});
+  });
+
+  logger.info('Redis Cloud queues initialized successfully');
+} else {
+  logger.info('Queues disabled (Redis not enabled)');
+}
 
 // Graceful shutdown
 const gracefulShutdown = async () => {
+  if (!isRedisEnabled || Object.keys(queues).length === 0) {
+    logger.info('No queues to shutdown');
+    return;
+  }
+
   logger.info('Shutting down queues gracefully...');
-  
+
   const shutdownPromises = Object.keys(queues).map(async queueName => {
     const queue = queues[queueName];
     await queue.close();

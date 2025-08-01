@@ -30,8 +30,19 @@ router.get('/restaurants',
 );
 
 // User analytics
-router.get('/users', 
+router.get('/users',
   analyticsController.getUserAnalytics
 );
+
+// Performance analytics (for frontend metrics)
+router.post('/performance', (req, res) => {
+  // Log performance metrics (could be stored in database)
+  console.log('[Analytics] Performance metrics received:', req.body);
+
+  res.status(200).json({
+    success: true,
+    message: 'Performance metrics logged'
+  });
+});
 
 module.exports = router;

@@ -17,6 +17,12 @@ class QueueWorkers {
       return;
     }
 
+    // Check if Redis is enabled
+    if (process.env.REDIS_ENABLED !== 'true') {
+      logger.info('Queue workers disabled (Redis not enabled)');
+      return;
+    }
+
     logger.info('Starting all queue workers...');
 
     // Email queue worker
@@ -56,38 +62,44 @@ class QueueWorkers {
 
   setupWorkerEventListeners() {
     this.queues.forEach(({ name, queue }) => {
-      // Worker-specific events (these are already set up in queue.js, but we can add more specific logging)
-      queue.on('completed', (job, result) => {
-        logger.info(`${name} worker completed job`, {
-          jobId: job.id,
-          processingTime: job.processedOn ? Date.now() - job.processedOn : 'unknown',
-          result: typeof result === 'object' ? JSON.stringify(result) : result
-        });
-      });
+      try {
+        // Worker-specific events (these are already set up in queue.js, but we can add more specific logging)
+        if (queue && typeof queue.on === 'function') {
+          queue.on('completed', (job, result) => {
+            logger.info(`${name} worker completed job`, {
+              jobId: job.id,
+              processingTime: job.processedOn ? Date.now() - job.processedOn : 'unknown',
+              result: typeof result === 'object' ? JSON.stringify(result) : result
+            });
+          });
 
-      queue.on('failed', (job, err) => {
-        logger.error(`${name} worker failed job`, {
-          jobId: job.id,
-          error: err.message,
-          attempts: job.attemptsMade,
-          data: job.data
-        });
-      });
+          queue.on('failed', (job, err) => {
+            logger.error(`${name} worker failed job`, {
+              jobId: job.id,
+              error: err.message,
+              attempts: job.attemptsMade,
+              data: job.data
+            });
+          });
 
-      queue.on('stalled', (job) => {
-        logger.warn(`${name} worker stalled`, {
-          jobId: job.id,
-          data: job.data
-        });
-      });
+          queue.on('stalled', (job) => {
+            logger.warn(`${name} worker stalled`, {
+              jobId: job.id,
+              data: job.data
+            });
+          });
 
-      // Additional worker events
-      queue.on('progress', (job, progress) => {
-        logger.debug(`${name} worker progress`, {
-          jobId: job.id,
-          progress: progress
-        });
-      });
+          // Additional worker events
+          queue.on('progress', (job, progress) => {
+            logger.debug(`${name} worker progress`, {
+              jobId: job.id,
+              progress: progress
+            });
+          });
+        }
+      } catch (error) {
+        logger.error(`Error setting up event listeners for ${name} queue:`, error);
+      }
     });
   }
 

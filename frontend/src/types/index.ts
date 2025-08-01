@@ -18,12 +18,20 @@ export interface User {
   email: string;
   firstName: string;
   lastName: string;
+  name?: string; // Computed full name for backward compatibility
   phone?: string;
-  avatar?: string;
+  avatar?: {
+    secure_url: string;
+  } | string;
   role: 'customer' | 'admin' | 'delivery';
   isVerified: boolean;
+  isPhoneVerified?: boolean;
   addresses: Address[];
   preferences: UserPreferences;
+  profile?: {
+    dateOfBirth?: string;
+    gender?: string;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -415,6 +423,39 @@ export interface AddressFormData {
   country: string;
   instructions?: string;
   isDefault?: boolean;
+}
+
+/**
+ * Profile Update Form Data Interface
+ */
+export interface ProfileUpdateFormData {
+  name: string;
+  phone: string;
+  dateOfBirth?: Date | string;
+  gender?: string;
+}
+
+/**
+ * Update Profile Data Interface
+ */
+export interface UpdateProfileData {
+  name: string;
+  phone: string;
+  dateOfBirth?: string;
+  gender?: string;
+}
+
+/**
+ * Paginated Response Interface
+ */
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 // ============================================================================

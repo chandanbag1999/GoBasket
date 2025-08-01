@@ -1,58 +1,59 @@
 import React from 'react';
+import { cn } from '@/lib/utils';
+import { containerVariants, type ContainerVariants } from '@/lib/variants';
 
 /**
  * Container Component Props Interface
+ * Enhanced with our variant system
  */
-interface ContainerProps {
+interface ContainerProps extends React.HTMLAttributes<HTMLDivElement>, ContainerVariants {
   children: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
-  padding?: boolean;
-  className?: string;
+  as?: keyof React.JSX.IntrinsicElements;
 }
 
 /**
- * Responsive Container Component
- * 
+ * Professional Container Component - Blinkit/BigBasket Style
+ *
  * Features:
- * - Multiple container sizes with responsive breakpoints
- * - Optional padding for mobile-first design
- * - Centered content with max-width constraints
- * - Consistent spacing across the application
- * - Mobile-first responsive design (320px-768px primary focus)
+ * - Type-safe variants with CVA
+ * - Responsive max-widths for different screen sizes
+ * - Configurable padding levels
+ * - Mobile-first approach
+ * - Polymorphic component support
+ * - Consistent with design system
+ *
+ * Usage:
+ * <Container size="7xl" padding="lg">
+ *   <h1>Page Content</h1>
+ * </Container>
  */
-const Container: React.FC<ContainerProps> = ({
+const Container = React.forwardRef<HTMLDivElement, ContainerProps>(({
   children,
-  size = 'lg',
-  padding = true,
-  className = ''
-}) => {
-  // Container size configurations with mobile-first approach
-  const sizeStyles = {
-    sm: 'max-w-sm',      // 384px
-    md: 'max-w-md',      // 448px  
-    lg: 'max-w-4xl',     // 896px - Good for most content
-    xl: 'max-w-6xl',     // 1152px - Wide layouts
-    full: 'max-w-full'   // No max width
-  };
+  className,
+  size = '7xl',
+  padding = 'default',
+  as: Component = 'div',
+  ...props
+}, ref) => {
+  // Use our variant system for consistent styling
+  const containerClasses = cn(
+    containerVariants({ size, padding }),
+    className
+  );
 
-  // Padding styles with mobile-first responsive padding
-  const paddingStyles = padding 
-    ? 'px-4 sm:px-6 lg:px-8' // 16px mobile, 24px tablet, 32px desktop
-    : '';
-
-  // Combine all styles
-  const containerClasses = `
-    mx-auto w-full
-    ${sizeStyles[size]}
-    ${paddingStyles}
-    ${className}
-  `.trim();
+  const Element = Component as any;
 
   return (
-    <div className={containerClasses}>
+    <Element
+      ref={ref}
+      className={containerClasses}
+      {...props}
+    >
       {children}
-    </div>
+    </Element>
   );
-};
+});
+
+Container.displayName = 'Container';
 
 export default Container;

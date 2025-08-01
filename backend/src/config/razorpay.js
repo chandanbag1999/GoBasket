@@ -9,8 +9,7 @@ class RazorpayService {
     // Check if required environment variables are present
     if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
       this.initializationError = 'Missing Razorpay credentials in environment variables';
-      logger.error('❌ Razorpay initialization failed: Missing credentials');
-      logger.info('Please ensure RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are set in .env file');
+      logger.error('Razorpay initialization failed: Missing credentials');
       return;
     }
 
@@ -22,17 +21,16 @@ class RazorpayService {
       });
 
       this.isInitialized = true;
-      logger.info('✅ Razorpay service initialized successfully');
+      logger.info('Razorpay service initialized successfully');
 
       // Verify credentials asynchronously (non-blocking)
       this.verifyCredentials().catch(error => {
-        logger.warn('⚠️ Razorpay credentials verification failed during startup:', error.message);
-        logger.info('Payment functionality may be limited. Please check your Razorpay credentials.');
+        logger.warn('Razorpay credentials verification failed:', error.message);
       });
 
     } catch (error) {
       this.initializationError = error.message;
-      logger.error('❌ Razorpay initialization failed:', error.message);
+      logger.error('Razorpay initialization failed:', error.message);
     }
   }
 
@@ -44,10 +42,10 @@ class RazorpayService {
     try {
       // Test API call to verify credentials
       await this.razorpay.payments.all({ count: 1 });
-      logger.info('✅ Razorpay credentials verified successfully');
+      logger.info('Razorpay credentials verified successfully');
       return true;
     } catch (error) {
-      logger.error('❌ Razorpay credentials verification failed:', error.message);
+      logger.error('Razorpay credentials verification failed:', error.message);
 
       // Provide helpful error messages based on error type
       if (error.statusCode === 401) {

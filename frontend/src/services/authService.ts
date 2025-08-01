@@ -1,160 +1,251 @@
-import { get, post } from './apiClient';
-import { API_CONFIG } from '@/constants';
-import type { ApiResponse, User, LoginFormData, RegisterFormData } from '@/types';
+import apiService from './api';
+import type { 
+  LoginFormData, 
+  RegisterFormData, 
+  User,
+  ApiResponse 
+} from '@/types';
 
-/**
- * Authentication Service
- * 
- * Handles all authentication-related API calls including:
- * - User login and registration
- * - Password reset functionality
- * - Email verification
- * - Token refresh
- */
+// Type aliases for compatibility
+type LoginCredentials = LoginFormData;
+type RegisterData = RegisterFormData;
+type AuthResponse = ApiResponse<{ user: User; accessToken: string; refreshToken: string; }>;
 
-/**
- * Login Response Interface
- */
-interface LoginResponse {
-  user: User;
-  accessToken: string;
-  refreshToken: string;
-}
-
-/**
- * Register Response Interface
- */
-interface RegisterResponse {
-  user: User;
-  accessToken: string;
-  refreshToken: string;
-}
-
-/**
- * Authentication Service Class
- */
 class AuthService {
+  private readonly baseUrl = '/auth';
+
   /**
    * Login user with email and password
-   * @param credentials - Login form data
-   * @returns Promise with login response
    */
-  async login(credentials: LoginFormData): Promise<ApiResponse<LoginResponse>> {
+  async login(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
-      const response = await post<LoginResponse>(
-        API_CONFIG.ENDPOINTS.LOGIN,
-        credentials
-      );
-      return response.data;
+      const response = await apiService.post<AuthResponse>(`${this.baseUrl}/login`, credentials);
+      return response;
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Login failed');
+      throw new Error(error.response?.data?.message || 'Login failed');
     }
   }
 
   /**
    * Register new user
-   * @param userData - Registration form data
-   * @returns Promise with registration response
    */
-  async register(userData: RegisterFormData): Promise<ApiResponse<RegisterResponse>> {
+  async register(userData: RegisterData): Promise<AuthResponse> {
     try {
-      const response = await post<RegisterResponse>(
-        API_CONFIG.ENDPOINTS.REGISTER,
-        userData
-      );
-      return response.data;
+      const response = await apiService.post<AuthResponse>(`${this.baseUrl}/register`, userData);
+      return response;
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Registration failed');
+      throw new Error(error.response?.data?.message || 'Registration failed');
     }
   }
 
   /**
    * Logout user
-   * @returns Promise with logout response
    */
   async logout(): Promise<ApiResponse> {
     try {
-      const response = await post(API_CONFIG.ENDPOINTS.LOGOUT);
-      return response.data;
+      const response = await apiService.post<ApiResponse>(`${this.baseUrl}/logout`);
+      return response;
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Logout failed');
-    }
-  }
-
-  /**
-   * Refresh access token
-   * @param refreshToken - Refresh token
-   * @returns Promise with new access token
-   */
-  async refreshToken(refreshToken: string): Promise<ApiResponse<{ accessToken: string }>> {
-    try {
-      const response = await post<{ accessToken: string }>(
-        API_CONFIG.ENDPOINTS.REFRESH_TOKEN,
-        { refreshToken }
-      );
-      return response.data;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Token refresh failed');
-    }
-  }
-
-  /**
-   * Send forgot password email
-   * @param email - User email
-   * @returns Promise with response
-   */
-  async forgotPassword(email: string): Promise<ApiResponse> {
-    try {
-      const response = await post(API_CONFIG.ENDPOINTS.FORGOT_PASSWORD, { email });
-      return response.data;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Failed to send reset email');
-    }
-  }
-
-  /**
-   * Reset password with token
-   * @param token - Reset token
-   * @param newPassword - New password
-   * @returns Promise with response
-   */
-  async resetPassword(token: string, newPassword: string): Promise<ApiResponse> {
-    try {
-      const response = await post(API_CONFIG.ENDPOINTS.RESET_PASSWORD, {
-        token,
-        password: newPassword
-      });
-      return response.data;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Password reset failed');
-    }
-  }
-
-  /**
-   * Verify email with token
-   * @param token - Verification token
-   * @returns Promise with response
-   */
-  async verifyEmail(token: string): Promise<ApiResponse> {
-    try {
-      const response = await post(API_CONFIG.ENDPOINTS.VERIFY_EMAIL, { token });
-      return response.data;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Email verification failed');
+      throw new Error(error.response?.data?.message || 'Logout failed');
     }
   }
 
   /**
    * Get current user profile
-   * @returns Promise with user data
    */
-  async getCurrentUser(): Promise<ApiResponse<User>> {
+  async getProfile(): Promise<ApiResponse<User>> {
     try {
-      const response = await get<User>(API_CONFIG.ENDPOINTS.PROFILE);
-      return response.data;
+      const response = await apiService.get<ApiResponse<User>>(`${this.baseUrl}/profile`);
+      return response;
     } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Failed to get user profile');
+      throw new Error(error.response?.data?.message || 'Failed to fetch profile');
     }
+  }
+
+  /**
+   * Update user profile
+   */
+  async updateProfile(userData: Partial<User>): Promise<ApiResponse<User>> {
+    try {
+      const response = await apiService.put<ApiResponse<User>>(`${this.baseUrl}/profile`, userData);
+      return response;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Failed to update profile');
+    }
+  }
+
+  /**
+   * Change password
+   */
+  async changePassword(data: {
+    currentPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+  }): Promise<ApiResponse> {
+    try {
+      const response = await apiService.put<ApiResponse>(`${this.baseUrl}/change-password`, data);
+      return response;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Failed to change password');
+    }
+  }
+
+  /**
+   * Request password reset
+   */
+  async requestPasswordReset(email: string): Promise<ApiResponse> {
+    try {
+      const response = await apiService.post<ApiResponse>(`${this.baseUrl}/forgot-password`, { email });
+      return response;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Failed to request password reset');
+    }
+  }
+
+  /**
+   * Forgot password (alias for requestPasswordReset)
+   */
+  async forgotPassword(data: { email: string }): Promise<ApiResponse> {
+    return this.requestPasswordReset(data.email);
+  }
+
+  /**
+   * Reset password with token
+   */
+  async resetPassword(data: {
+    token: string;
+    newPassword: string;
+    confirmPassword: string;
+  }): Promise<ApiResponse> {
+    try {
+      const response = await apiService.post<ApiResponse>(`${this.baseUrl}/reset-password`, data);
+      return response;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Failed to reset password');
+    }
+  }
+
+  /**
+   * Verify email with token
+   */
+  async verifyEmail(token: string): Promise<ApiResponse> {
+    try {
+      const response = await apiService.post<ApiResponse>(`${this.baseUrl}/verify-email`, { token });
+      return response;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Email verification failed');
+    }
+  }
+
+  /**
+   * Resend email verification
+   */
+  async resendVerification(): Promise<ApiResponse> {
+    try {
+      const response = await apiService.post<ApiResponse>(`${this.baseUrl}/resend-verification`);
+      return response;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Failed to resend verification');
+    }
+  }
+
+  /**
+   * Verify OTP
+   */
+  async verifyOTP(data: { phone: string; otp: string }): Promise<AuthResponse> {
+    try {
+      const response = await apiService.post<AuthResponse>(`${this.baseUrl}/verify-otp`, data);
+      return response;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'OTP verification failed');
+    }
+  }
+
+  /**
+   * Resend OTP
+   */
+  async resendOTP(data: { phone: string }): Promise<ApiResponse> {
+    try {
+      const response = await apiService.post<ApiResponse>(`${this.baseUrl}/resend-otp`, data);
+      return response;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Failed to resend OTP');
+    }
+  }
+
+  /**
+   * Refresh access token
+   */
+  async refreshToken(refreshToken: string): Promise<AuthResponse> {
+    try {
+      const response = await apiService.post<AuthResponse>(`${this.baseUrl}/refresh-token`, {
+        refreshToken
+      });
+      return response;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Token refresh failed');
+    }
+  }
+
+  /**
+   * Check if user is authenticated
+   */
+  isAuthenticated(): boolean {
+    const token = localStorage.getItem('accessToken');
+    return !!token;
+  }
+
+  /**
+   * Get stored access token
+   */
+  getAccessToken(): string | null {
+    return localStorage.getItem('accessToken');
+  }
+
+  /**
+   * Get stored refresh token
+   */
+  getRefreshToken(): string | null {
+    return localStorage.getItem('refreshToken');
+  }
+
+  /**
+   * Store tokens in localStorage
+   */
+  setTokens(accessToken: string, refreshToken: string): void {
+    localStorage.setItem('accessToken', accessToken);
+    localStorage.setItem('refreshToken', refreshToken);
+  }
+
+  /**
+   * Clear stored tokens
+   */
+  clearTokens(): void {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+  }
+
+  /**
+   * Store user data
+   */
+  setUser(user: User): void {
+    localStorage.setItem('user', JSON.stringify(user));
+  }
+
+  /**
+   * Get stored user data
+   */
+  getUser(): User | null {
+    const userData = localStorage.getItem('user');
+    return userData ? JSON.parse(userData) : null;
+  }
+
+  /**
+   * Clear user data
+   */
+  clearUser(): void {
+    localStorage.removeItem('user');
   }
 }
 
