@@ -1,56 +1,68 @@
 const express = require("express");
 const AuthMiddleware = require("../middleware/auth");
-const validate = require("../middleware/joiValidation");
+const JoiValidationMiddleware = require("../middleware/joiValidation");
 const userController = require("../controllers/userController");
-
 const rateLimit = require("express-rate-limit");
 
+const router = express.Router();
+
+// Rate limiting for user operations
 const userLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 200,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200, // 200 requests per window
   message: {
     status: "error",
     message: "Too many requests. Please try again later.",
   },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
-const router = express.Router();
+// Apply authentication and rate limiting to all routes
+router.use(AuthMiddleware.authenticate);
+router.use(userLimiter);
 
-router.use(AuthMiddleware.authenticate, userLimiter);
-
-// Profile
+// Profile management routes
 router.get("/me", userController.getMe);
-router.put("/profile", validate("updateProfile"), userController.updateProfile);
+router.put(
+  "/profile",
+  JoiValidationMiddleware.validate("updateProfile"),
+  userController.updateProfile
+);
 
-// Preferences
+// Preferences routes
 router.put(
   "/preferences",
-  validate("updatePreferences"),
+  JoiValidationMiddleware.validate("updatePreferences"),
   userController.updatePreferences
 );
 
-// Addresses
+// Address management routes
 router.get("/addresses", userController.listAddresses);
-router.post("/addresses", validate("createAddress"), userController.addAddress);
+router.post(
+  "/addresses",
+  JoiValidationMiddleware.validate("createAddress"),
+  userController.addAddress
+);
 router.put(
   "/addresses/:addressId",
-  validate("updateAddress"),
+  JoiValidationMiddleware.validate("updateAddress"),
   userController.updateAddress
 );
 router.delete("/addresses/:addressId", userController.deleteAddress);
 
-// Change email
+// Email change routes
 router.post(
   "/change-email/request",
-  validate("changeEmail"),
+  JoiValidationMiddleware.validate("changeEmail"),
   userController.requestChangeEmail
 );
 router.post("/change-email/confirm", userController.confirmChangeEmail);
 
-// Delete account (soft)
+// Account management
 router.post(
   "/delete-account",
-  validate("deleteAccount"),
+  JoiValidationMiddleware.validate("deleteAccount"),
   userController.deleteAccount
 );
 

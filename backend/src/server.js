@@ -110,6 +110,7 @@ app.get('/test-db', async (req, res) => {
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/user', userRoutes);
 
+
 // ✅ FIXED: 404 handler for API routes that don't exist (Express 5 compatible)
 app.use('/api/v1/*splat', (req, res) => {  // ✅ Added named parameter 'splat'
   res.status(404).json({
