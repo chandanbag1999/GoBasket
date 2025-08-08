@@ -1,14 +1,17 @@
-require('dotenv').config();
-
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
-
+const cookieParser = require('cookie-parser');
+require('dotenv').config();
 
 // Import database connections
 const database = require('./config/database');
 const redisConnection = require('./config/redis');
+
+// Import routes
+const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes');
 
 const app = express();
 
@@ -35,6 +38,9 @@ app.use(express.urlencoded({
   limit: '10mb' 
 }));
 
+// Cookie parser
+app.use(cookieParser());
+
 // Logging middleware
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
@@ -45,7 +51,6 @@ if (process.env.NODE_ENV === 'development') {
 // Health check route with database status
 app.get('/health', async (req, res) => {
   try {
-    // Check database connections
     const dbStatus = database.getConnectionStatus();
     const redisStatus = redisConnection.getConnectionStatus();
 
@@ -81,7 +86,6 @@ app.get('/health', async (req, res) => {
 // Database connectivity test route
 app.get('/test-db', async (req, res) => {
   try {
-    // Test Redis ping
     const redisPing = await redisConnection.ping();
     
     res.json({
@@ -102,16 +106,25 @@ app.get('/test-db', async (req, res) => {
   }
 });
 
-// API routes prefix
-app.use('/api/v1', (req, res, next) => {
+// IMPORTANT: Add specific API routes FIRST, before any wildcard handlers
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/user', userRoutes);
+
+// ✅ FIXED: 404 handler for API routes that don't exist (Express 5 compatible)
+app.use('/api/v1/*splat', (req, res) => {  // ✅ Added named parameter 'splat'
   res.status(404).json({
     status: 'error',
-    message: 'API endpoint not found'
+    message: `API endpoint ${req.originalUrl} not found`,
+    availableEndpoints: {
+      auth: '/api/v1/auth/*',
+      health: '/health',
+      testDb: '/test-db'
+    }
   });
 });
 
-// 404 handler
-app.use('/*splat', (req, res) => {
+// ✅ FIXED: Global 404 handler (Express 5 compatible)
+app.use('/*splat', (req, res) => {  // ✅ Added named parameter 'splat'
   res.status(404).json({
     status: 'error',
     message: `Route ${req.originalUrl} not found`
@@ -171,6 +184,7 @@ const startServer = async () => {
       console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
       console.log(`🔗 Health check: http://localhost:${PORT}/health`);
       console.log(`🧪 Database test: http://localhost:${PORT}/test-db`);
+      console.log(`🔐 Auth endpoints: http://localhost:${PORT}/api/v1/auth/*`);
       console.log('🚀 ================================');
     });
   } catch (error) {
