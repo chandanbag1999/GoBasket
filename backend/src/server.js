@@ -12,6 +12,13 @@ const redisConnection = require('./config/redis');
 // Import routes
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
+const cartRoutes = require('./routes/cartRoutes');
+const orderRoutes = require('./routes/orderRoutes');
+const wishlistRoutes = require('./routes/wishlistRoutes');
+const productRoutes = require('./routes/productRoutes');
+const categoryRoutes = require('./routes/categoryRoutes');
+const reviewRoutes = require('./routes/reviewRoutes');
 
 const app = express();
 
@@ -109,6 +116,13 @@ app.get('/test-db', async (req, res) => {
 // IMPORTANT: Add specific API routes FIRST, before any wildcard handlers
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/user', userRoutes);
+app.use('/api/v1/payment', paymentRoutes);
+app.use('/api/v1/cart', cartRoutes);
+app.use('/api/v1/order', orderRoutes);
+app.use('/api/v1/wishlist', wishlistRoutes);
+app.use('/api/v1/product', productRoutes);
+app.use('/api/v1/category', categoryRoutes);
+app.use('/api/v1/review', reviewRoutes);
 
 
 // ✅ FIXED: 404 handler for API routes that don't exist (Express 5 compatible)

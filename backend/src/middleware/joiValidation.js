@@ -132,6 +132,108 @@ const schemas = {
     reason: Joi.string().allow("", null).max(250).optional(),
     confirm: Joi.boolean().valid(true).required(),
   }),
+
+  createPaymentOrder: Joi.object({
+    cartItems: Joi.array()
+      .items(
+        Joi.object({
+          productId: common.objectId.required(),
+          name: Joi.string().required(),
+          image: Joi.string().optional(),
+          price: Joi.number().min(0).required(),
+          quantity: Joi.number().integer().min(1).required(),
+          unit: Joi.string().optional(),
+        })
+      )
+      .min(1)
+      .required(),
+    shippingAddress: Joi.object({
+      fullName: Joi.string().required(),
+      phone: common.phone.required(),
+      line1: Joi.string().required(),
+      line2: Joi.string().allow("").optional(),
+      landmark: Joi.string().allow("").optional(),
+      city: Joi.string().required(),
+      state: Joi.string().required(),
+      pincode: common.pincode.required(),
+      country: Joi.string().default("India"),
+    }).required(),
+    paymentMethod: Joi.string().valid("razorpay", "cod").default("razorpay"),
+  }),
+
+  verifyPayment: Joi.object({
+    razorpay_order_id: Joi.string().required(),
+    razorpay_payment_id: Joi.string().required(),
+    razorpay_signature: Joi.string().required(),
+    orderId: common.objectId.required(),
+  }),
+
+  paymentFailed: Joi.object({
+    orderId: common.objectId.required(),
+    reason: Joi.string().optional(),
+  }),
+
+  processRefund: Joi.object({
+    amount: Joi.number().min(0).optional(),
+    reason: Joi.string().required(),
+  }),
+
+  addToCart: Joi.object({
+    productId: common.objectId.required(),
+    quantity: Joi.number().integer().min(1).required(),
+  }),
+
+  updateCartItem: Joi.object({
+    quantity: Joi.number().integer().min(0).required(),
+  }),
+
+  createReview: Joi.object({
+    productId: common.objectId.required(),
+    orderId: common.objectId.required(),
+    rating: Joi.number().integer().min(1).max(5).required(),
+    title: Joi.string().trim().max(100).optional(),
+    comment: Joi.string().trim().min(10).max(1000).required(),
+    images: Joi.array()
+      .items(
+        Joi.object({
+          publicId: Joi.string().required(),
+          url: Joi.string().uri().required(),
+          alt: Joi.string().optional(),
+        })
+      )
+      .max(5)
+      .optional(),
+  }),
+
+  updateReview: Joi.object({
+    rating: Joi.number().integer().min(1).max(5).optional(),
+    title: Joi.string().trim().max(100).optional(),
+    comment: Joi.string().trim().min(10).max(1000).optional(),
+    images: Joi.array()
+      .items(
+        Joi.object({
+          publicId: Joi.string().required(),
+          url: Joi.string().uri().required(),
+          alt: Joi.string().optional(),
+        })
+      )
+      .max(5)
+      .optional(),
+  }),
+
+  addToWishlist: Joi.object({
+    productId: common.objectId.required(),
+    notes: Joi.string().trim().max(200).optional(),
+  }),
+
+  updateWishlistItem: Joi.object({
+    notes: Joi.string().trim().max(200).optional(),
+  }),
+
+  updateWishlistSettings: Joi.object({
+    name: Joi.string().trim().min(1).max(50).optional(),
+    isPublic: Joi.boolean().optional(),
+  }),
 };
 
 // ✅ MAIN VALIDATION MIDDLEWARE FUNCTION
