@@ -4,10 +4,44 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* Enhanced radius system */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /* Mobile-first breakpoints for grocery app */
+  --breakpoint-xs: 375px;
+  --breakpoint-sm: 414px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+
+  /* Blinkit/BigBasket inspired grocery app colors */
+  --color-grocery-green: #22c55e;
+  --color-grocery-green-dark: #16a34a;
+  --color-offer-orange: #f59e0b;
+  --color-offer-orange-dark: #d97706;
+  --color-fresh-red: #ef4444;
+  --color-app-bg: #fafafa;
+  --color-card-bg: #ffffff;
+  --color-border-light: #e5e7eb;
+
+  /* Touch-friendly spacing (44px minimum for iOS) */
+  --spacing-touch: 44px;
+  --spacing-safe-top: env(safe-area-inset-top);
+  --spacing-safe-bottom: env(safe-area-inset-bottom);
+  --spacing-safe-left: env(safe-area-inset-left);
+  --spacing-safe-right: env(safe-area-inset-right);
+
+  /* App-like shadows */
+  --shadow-app-card: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow-app-header: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --shadow-floating: 0 8px 32px rgba(0, 0, 0, 0.12);
+  --shadow-bottom-nav: 0 -2px 8px rgba(0, 0, 0, 0.1);
+
+  /* Original theme colors */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -39,6 +73,12 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Mobile app-like animations */
+  --animate-slide-up: slideUp 0.3s ease-out;
+  --animate-fade-in: fadeIn 0.2s ease-out;
+  --animate-bounce-gentle: bounceGentle 0.6s ease-out;
+  --animate-scale-tap: scaleTap 0.1s ease-out;
 }
 
 :root {
@@ -49,15 +89,15 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+  --primary: var(--color-grocery-green);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
+  --accent: var(--color-offer-orange);
   --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
+  --destructive: var(--color-fresh-red);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
@@ -83,13 +123,13 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
+  --primary: var(--color-grocery-green-dark);
   --primary-foreground: oklch(0.205 0 0);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
+  --accent: var(--color-offer-orange-dark);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
@@ -110,11 +150,352 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* Mobile app-like keyframes */
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes bounceGentle {
+  0%,
+  20%,
+  53%,
+  80%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  40%,
+  43% {
+    transform: translate3d(0, -8px, 0);
+  }
+  70% {
+    transform: translate3d(0, -4px, 0);
+  }
+  90% {
+    transform: translate3d(0, -2px, 0);
+  }
+}
+
+@keyframes scaleTap {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
+  html {
+    /* Mobile app optimizations */
+    touch-action: manipulation;
+    scroll-behavior: smooth;
+    /* Prevent zoom on double tap */
+    -webkit-touch-callout: none;
+    /* iOS momentum scrolling */
+    -webkit-overflow-scrolling: touch;
+    /* Prevent text size adjustment */
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+  }
+
   body {
     @apply bg-background text-foreground;
+    /* App-like font family */
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+      system-ui, sans-serif;
+    /* Prevent text selection on touch (except inputs) */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    /* iOS momentum scrolling */
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Allow text selection in specific elements */
+  input,
+  textarea,
+  [contenteditable],
+  p,
+  span,
+  div[data-selectable="true"] {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+  }
+
+  /* App-like button styling */
+  button {
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+    touch-action: manipulation;
+  }
+}
+
+@layer utilities {
+  /* Hide scrollbars but keep functionality (like native apps) */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Line clamp utilities for product cards */
+  .line-clamp-1 {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Touch-friendly utilities */
+  .touch-target {
+    min-height: var(--spacing-touch);
+    min-width: var(--spacing-touch);
+  }
+
+  .app-touch {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Safe area utilities for mobile devices */
+  .safe-top {
+    padding-top: var(--spacing-safe-top);
+  }
+
+  .safe-bottom {
+    padding-bottom: var(--spacing-safe-bottom);
+  }
+
+  .safe-left {
+    padding-left: var(--spacing-safe-left);
+  }
+
+  .safe-right {
+    padding-right: var(--spacing-safe-right);
+  }
+
+  .safe-area-inset {
+    padding-top: var(--spacing-safe-top);
+    padding-bottom: var(--spacing-safe-bottom);
+    padding-left: var(--spacing-safe-left);
+    padding-right: var(--spacing-safe-right);
+  }
+
+  /* App-like shadows */
+  .shadow-app-card {
+    box-shadow: var(--shadow-app-card);
+  }
+
+  .shadow-app-header {
+    box-shadow: var(--shadow-app-header);
+  }
+
+  .shadow-floating {
+    box-shadow: var(--shadow-floating);
+  }
+
+  .shadow-bottom-nav {
+    box-shadow: var(--shadow-bottom-nav);
+  }
+
+  /* Mobile app-like animations */
+  .animate-slide-up {
+    animation: var(--animate-slide-up);
+  }
+
+  .animate-fade-in {
+    animation: var(--animate-fade-in);
+  }
+
+  .animate-bounce-gentle {
+    animation: var(--animate-bounce-gentle);
+  }
+
+  .animate-scale-tap {
+    animation: var(--animate-scale-tap);
+  }
+
+  /* Touch feedback like native apps */
+  .touch-feedback {
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+    transition: transform 0.1s ease-out;
+  }
+
+  .touch-feedback:active {
+    transform: scale(0.95);
+  }
+
+  /* Grocery app specific utilities */
+  .bg-app {
+    background-color: var(--color-app-bg);
+  }
+
+  .bg-card-app {
+    background-color: var(--color-card-bg);
+  }
+
+  .border-light-app {
+    border-color: var(--color-border-light);
+  }
+
+  .text-grocery-green {
+    color: var(--color-grocery-green);
+  }
+
+  .bg-grocery-green {
+    background-color: var(--color-grocery-green);
+  }
+
+  .text-offer-orange {
+    color: var(--color-offer-orange);
+  }
+
+  .bg-offer-orange {
+    background-color: var(--color-offer-orange);
+  }
+
+  /* Product card hover effects */
+  .product-card {
+    @apply bg-card-app rounded-lg shadow-app-card transition-all duration-200 hover:shadow-lg;
+  }
+
+  .product-card:active {
+    transform: scale(0.98);
+  }
+
+  /* Bottom navigation styling */
+  .bottom-nav {
+    @apply fixed bottom-0 left-0 right-0 bg-white border-t border-light-app safe-bottom z-50 shadow-bottom-nav;
+  }
+
+  .bottom-nav-item {
+    @apply flex flex-col items-center justify-center touch-target transition-all duration-200;
+  }
+
+  .bottom-nav-item:active {
+    transform: scale(0.9);
+  }
+
+  /* Category card styling */
+  .category-card {
+    @apply bg-white rounded-2xl transition-transform duration-200 active:scale-95 shadow-sm;
+  }
+
+  /* Header styling */
+  .app-header {
+    @apply sticky top-0 z-50 bg-white safe-top;
+  }
+
+  .app-header.scrolled {
+    @apply shadow-app-header;
+  }
+
+  /* Search bar styling */
+  .search-bar {
+    @apply rounded-full bg-gray-100 border-0 focus:ring-2 focus:ring-grocery-green transition-all duration-200;
+  }
+
+  /* Button variants for grocery app */
+  .btn-grocery {
+    @apply bg-grocery-green text-white rounded-lg font-semibold touch-target transition-all duration-200 active:scale-95;
+  }
+
+  .btn-offer {
+    @apply bg-offer-orange text-white rounded-lg font-semibold touch-target transition-all duration-200 active:scale-95;
+  }
+}
+
+/* iOS/Android specific optimizations */
+@supports (-webkit-touch-callout: none) {
+  /* iOS specific styles */
+  .ios-scroll {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* PWA optimizations */
+@media (display-mode: standalone) {
+  /* When app is installed as PWA */
+  body {
+    padding-top: var(--spacing-safe-top);
+  }
+}
+
+/* Mobile-first responsive utilities */
+@media screen and (max-width: 480px) {
+  /* Ensure proper mobile scaling */
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  /* Mobile-specific font sizes */
+  .mobile-title {
+    font-size: 1.5rem;
+    line-height: 2rem;
+  }
+
+  .mobile-subtitle {
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+  }
+}
+
+/* Tablet optimizations */
+@media screen and (min-width: 768px) and (max-width: 1024px) {
+  .tablet-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+}
+
+/* Desktop optimizations */
+@media screen and (min-width: 1024px) {
+  .desktop-layout {
+    max-width: 1200px;
+    margin: 0 auto;
   }
 }
