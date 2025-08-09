@@ -1,31 +1,42 @@
 const Cart = require("../models/Cart");
-const Product = require("../models/Product"); // You'll need this
+const Product = require("../models/Product");
+const cacheService = require("../services/cacheService");
 
 class CartController {
-  // Get user's cart
+  // Get user's cart with caching
   async getCart(req, res) {
     try {
       const userId = req.user._id;
 
-      let cart = await Cart.findByUser(userId);
+      const result = await cacheService.getOrSet(
+        `cart:${userId}`,
+        async () => {
+          let cart = await Cart.findByUser(userId);
 
-      if (!cart) {
-        cart = new Cart({ userId, items: [] });
-        await cart.save();
-      }
+          if (!cart) {
+            cart = new Cart({ userId, items: [] });
+            await cart.save();
+          }
 
-      res.status(200).json({
-        status: "success",
-        data: {
-          cart: {
-            id: cart._id,
-            items: cart.items,
-            totalItems: cart.totalItems,
-            totalAmount: cart.totalAmount,
-            lastModified: cart.lastModified,
-          },
+          return {
+            status: "success",
+            data: {
+              cart: {
+                id: cart._id,
+                items: cart.items,
+                totalItems: cart.totalItems,
+                totalAmount: cart.totalAmount,
+                lastModified: cart.lastModified,
+              },
+              cached: false,
+            },
+          };
         },
-      });
+        cacheService.defaultTTL.SHORT // Short TTL for cart
+      );
+
+      result.data.cached = true;
+      res.status(200).json(result);
     } catch (error) {
       console.error("❌ Get cart error:", error);
 
@@ -37,7 +48,7 @@ class CartController {
     }
   }
 
-  // Add item to cart
+  // Add item to cart with cache invalidation
   async addToCart(req, res) {
     try {
       const userId = req.user._id;
@@ -51,30 +62,29 @@ class CartController {
         });
       }
 
-      // Find product (you'll need Product model)
-      // const product = await Product.findById(productId);
-      // if (!product) {
-      //   return res.status(404).json({
-      //     status: 'error',
-      //     message: 'Product not found',
-      //     code: 'PRODUCT_NOT_FOUND'
-      //   });
-      // }
+      // Get product (try cache first)
+      const product = await cacheService.getOrSet(
+        `product:${productId}`,
+        async () => {
+          return await Product.findById(productId);
+        },
+        cacheService.defaultTTL.LONG
+      );
 
-      // For now, using mock product data
-      const mockProduct = {
-        _id: productId,
-        name: "Sample Product",
-        price: 100,
-        stock: 50,
-      };
+      if (!product) {
+        return res.status(404).json({
+          status: "error",
+          message: "Product not found",
+          code: "PRODUCT_NOT_FOUND",
+        });
+      }
 
-      if (quantity > mockProduct.stock) {
+      if (quantity > product.stock) {
         return res.status(400).json({
           status: "error",
           message: "Insufficient stock",
           code: "INSUFFICIENT_STOCK",
-          availableStock: mockProduct.stock,
+          availableStock: product.stock,
         });
       }
 
@@ -83,8 +93,11 @@ class CartController {
         cart = new Cart({ userId, items: [] });
       }
 
-      cart.addItem(productId, quantity, mockProduct.price);
+      cart.addItem(productId, quantity, product.price);
       await cart.save();
+
+      // Invalidate cart cache
+      await cacheService.invalidateCart(userId);
 
       // Populate the cart
       await cart.populate(
@@ -117,7 +130,7 @@ class CartController {
     }
   }
 
-  // Update cart item
+  // Update cart item with cache invalidation
   async updateCartItem(req, res) {
     try {
       const userId = req.user._id;
@@ -143,6 +156,9 @@ class CartController {
 
       cart.updateItem(productId, quantity);
       await cart.save();
+
+      // Invalidate cart cache
+      await cacheService.invalidateCart(userId);
 
       await cart.populate(
         "items.productId",
@@ -174,7 +190,7 @@ class CartController {
     }
   }
 
-  // Remove item from cart
+  // Remove item from cart with cache invalidation
   async removeFromCart(req, res) {
     try {
       const userId = req.user._id;
@@ -191,6 +207,9 @@ class CartController {
 
       cart.removeItem(productId);
       await cart.save();
+
+      // Invalidate cart cache
+      await cacheService.invalidateCart(userId);
 
       await cart.populate(
         "items.productId",
@@ -222,7 +241,7 @@ class CartController {
     }
   }
 
-  // Clear cart
+  // Clear cart with cache invalidation
   async clearCart(req, res) {
     try {
       const userId = req.user._id;
@@ -238,6 +257,9 @@ class CartController {
 
       cart.clear();
       await cart.save();
+
+      // Invalidate cart cache
+      await cacheService.invalidateCart(userId);
 
       console.log(`✅ Cart cleared for user: ${req.user.email}`);
 

@@ -1,6 +1,7 @@
 const express = require("express");
 const AuthMiddleware = require("../middleware/auth");
 const JoiValidationMiddleware = require("../middleware/joiValidation");
+const CacheMiddleware = require("../middleware/cacheMiddleware");
 const cartController = require("../controllers/cartController");
 const rateLimit = require("express-rate-limit");
 
@@ -20,27 +21,41 @@ const cartLimiter = rateLimit({
 router.use(AuthMiddleware.authenticate);
 router.use(cartLimiter);
 
-// Get cart
-router.get("/", cartController.getCart);
+// Get cart with caching
+router.get(
+  "/",
+  CacheMiddleware.cacheCart(60), // 1 minute
+  cartController.getCart
+);
 
-// Add to cart
+// Add to cart with cache invalidation
 router.post(
   "/add",
   JoiValidationMiddleware.validate("addToCart"),
+  CacheMiddleware.invalidateCache([(req) => `cart:${req.user._id}`]),
   cartController.addToCart
 );
 
-// Update cart item
+// Update cart item with cache invalidation
 router.put(
   "/item/:productId",
   JoiValidationMiddleware.validate("updateCartItem"),
+  CacheMiddleware.invalidateCache([(req) => `cart:${req.user._id}`]),
   cartController.updateCartItem
 );
 
-// Remove from cart
-router.delete("/item/:productId", cartController.removeFromCart);
+// Remove from cart with cache invalidation
+router.delete(
+  "/item/:productId",
+  CacheMiddleware.invalidateCache([(req) => `cart:${req.user._id}`]),
+  cartController.removeFromCart
+);
 
-// Clear cart
-router.delete("/clear", cartController.clearCart);
+// Clear cart with cache invalidation
+router.delete(
+  "/clear",
+  CacheMiddleware.invalidateCache([(req) => `cart:${req.user._id}`]),
+  cartController.clearCart
+);
 
 module.exports = router;

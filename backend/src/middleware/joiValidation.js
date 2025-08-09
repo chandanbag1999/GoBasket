@@ -234,6 +234,149 @@ const schemas = {
     name: Joi.string().trim().min(1).max(50).optional(),
     isPublic: Joi.boolean().optional(),
   }),
+
+  createPromotion: Joi.object({
+    name: Joi.string().trim().min(3).max(100).required(),
+    description: Joi.string().trim().max(500).optional(),
+    code: Joi.string().trim().min(3).max(20).required(),
+    type: Joi.string()
+      .valid("percentage", "fixed_amount", "free_shipping", "bogo", "combo")
+      .required(),
+    discount: Joi.object({
+      value: Joi.number().min(0).required(),
+      maxDiscount: Joi.number().min(0).optional(),
+      minOrderAmount: Joi.number().min(0).default(0),
+    }).required(),
+    usageLimit: Joi.object({
+      total: Joi.number().integer().min(1).optional(),
+      perUser: Joi.number().integer().min(1).default(1),
+    }).optional(),
+    validity: Joi.object({
+      startDate: Joi.date().required(),
+      endDate: Joi.date().greater(Joi.ref("startDate")).required(),
+      isActive: Joi.boolean().default(true),
+    }).required(),
+    applicableTo: Joi.object({
+      userType: Joi.string()
+        .valid("all", "new", "returning", "vip")
+        .default("all"),
+      categories: Joi.array().items(common.objectId).optional(),
+      products: Joi.array().items(common.objectId).optional(),
+      cities: Joi.array().items(Joi.string()).optional(),
+      minPurchaseHistory: Joi.number().integer().min(0).optional(),
+    }).optional(),
+  }),
+
+  updatePromotion: Joi.object({
+    name: Joi.string().trim().min(3).max(100).optional(),
+    description: Joi.string().trim().max(500).optional(),
+    code: Joi.string().trim().min(3).max(20).optional(),
+    type: Joi.string()
+      .valid("percentage", "fixed_amount", "free_shipping", "bogo", "combo")
+      .optional(),
+    discount: Joi.object({
+      value: Joi.number().min(0).optional(),
+      maxDiscount: Joi.number().min(0).optional(),
+      minOrderAmount: Joi.number().min(0).optional(),
+    }).optional(),
+    status: Joi.string()
+      .valid("draft", "active", "paused", "expired", "disabled")
+      .optional(),
+  }),
+
+  applyPromotion: Joi.object({
+    code: Joi.string().trim().required(),
+    orderDetails: Joi.object({
+      subtotal: Joi.number().min(0).required(),
+      items: Joi.array()
+        .items(
+          Joi.object({
+            productId: common.objectId.required(),
+            categoryId: common.objectId.optional(),
+            price: Joi.number().min(0).required(),
+            quantity: Joi.number().integer().min(1).required(),
+          })
+        )
+        .required(),
+      categories: Joi.array().items(common.objectId).optional(),
+      shippingAddress: Joi.object({
+        city: Joi.string().optional(),
+      }).optional(),
+    }).required(),
+  }),
+
+  generateBulkCodes: Joi.object({
+    count: Joi.number().integer().min(1).max(1000).default(100),
+    prefix: Joi.string().trim().max(10).default("BULK"),
+  }),
+
+  updateStock: Joi.object({
+    stock: Joi.number().integer().min(0).required(),
+    operation: Joi.string().valid("set", "add", "subtract").default("set"),
+    reason: Joi.string().trim().max(200).optional(),
+    notes: Joi.string().trim().max(500).optional(),
+  }),
+
+  bulkUpdateStock: Joi.object({
+    updates: Joi.array()
+      .items(
+        Joi.object({
+          productId: common.objectId.required(),
+          stock: Joi.number().integer().min(0).required(),
+          operation: Joi.string()
+            .valid("set", "add", "subtract")
+            .default("set"),
+          reason: Joi.string().trim().max(200).optional(),
+        })
+      )
+      .min(1)
+      .max(100)
+      .required(),
+  }),
+
+  setReorderPoints: Joi.object({
+    reorderPoints: Joi.array()
+      .items(
+        Joi.object({
+          productId: common.objectId.required(),
+          threshold: Joi.number().integer().min(0).required(),
+        })
+      )
+      .min(1)
+      .required(),
+  }),
+
+  sendNotification: Joi.object({
+    type: Joi.string().valid("email", "sms", "push", "in_app").required(),
+    recipients: Joi.object({
+      users: Joi.array().items(common.objectId).optional(),
+      segments: Joi.array()
+        .items(
+          Joi.string().valid(
+            "all_users",
+            "new_users",
+            "vip_users",
+            "inactive_users"
+          )
+        )
+        .optional(),
+      customEmails: Joi.array().items(Joi.string().email()).optional(),
+      customPhones: Joi.array().items(Joi.string()).optional(),
+    }).required(),
+    content: Joi.object({
+      subject: Joi.string().trim().max(200).optional(),
+      title: Joi.string().trim().max(100).optional(),
+      message: Joi.string().trim().min(1).max(2000).required(),
+      html: Joi.string().optional(),
+    }).required(),
+    scheduling: Joi.object({
+      sendAt: Joi.date().default(Date.now),
+      isScheduled: Joi.boolean().default(false),
+    }).optional(),
+    priority: Joi.string()
+      .valid("low", "medium", "high", "urgent")
+      .default("medium"),
+  }),
 };
 
 // ✅ MAIN VALIDATION MIDDLEWARE FUNCTION

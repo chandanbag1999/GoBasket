@@ -1,5 +1,6 @@
 const express = require("express");
 const AuthMiddleware = require("../middleware/auth");
+const CacheMiddleware = require("../middleware/cacheMiddleware");
 const productController = require("../controllers/productController");
 const rateLimit = require("express-rate-limit");
 
@@ -18,11 +19,38 @@ const productLimiter = rateLimit({
 // Apply rate limiting
 router.use(productLimiter);
 
-// Public routes
-router.get("/", productController.getProducts);
-router.get("/search", productController.searchProducts);
-router.get("/featured", productController.getFeaturedProducts);
-router.get("/category/:categorySlug", productController.getProductsByCategory);
-router.get("/:identifier", productController.getProduct);
+// Public routes with caching
+router.get(
+  "/",
+  CacheMiddleware.cacheProducts(300), // 5 minutes
+  productController.getProducts
+);
+
+router.get(
+  "/search",
+  CacheMiddleware.cacheSearchResults(300), // 5 minutes
+  productController.searchProducts
+);
+
+router.get(
+  "/featured",
+  CacheMiddleware.cache("products:featured", 1800), // 30 minutes
+  productController.getFeaturedProducts
+);
+
+router.get(
+  "/category/:categorySlug",
+  CacheMiddleware.cache(
+    (req) => `products:category:${req.params.categorySlug}`,
+    600
+  ), // 10 minutes
+  productController.getProductsByCategory
+);
+
+router.get(
+  "/:identifier",
+  CacheMiddleware.cacheProduct(1800), // 30 minutes
+  productController.getProduct
+);
 
 module.exports = router;

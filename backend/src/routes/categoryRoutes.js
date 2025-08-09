@@ -1,4 +1,5 @@
 const express = require("express");
+const CacheMiddleware = require("../middleware/cacheMiddleware");
 const categoryController = require("../controllers/categoryController");
 const rateLimit = require("express-rate-limit");
 
@@ -17,9 +18,23 @@ const categoryLimiter = rateLimit({
 // Apply rate limiting
 router.use(categoryLimiter);
 
-// Public routes
-router.get("/", categoryController.getCategories);
-router.get("/tree", categoryController.getCategoryTree);
-router.get("/:slug", categoryController.getCategory);
+// Public routes with aggressive caching (categories don't change often)
+router.get(
+  "/",
+  CacheMiddleware.cacheCategories(3600), // 1 hour
+  categoryController.getCategories
+);
+
+router.get(
+  "/tree",
+  CacheMiddleware.cache("categories:tree", 3600), // 1 hour
+  categoryController.getCategoryTree
+);
+
+router.get(
+  "/:slug",
+  CacheMiddleware.cache((req) => `categories:single:${req.params.slug}`, 1800), // 30 minutes
+  categoryController.getCategory
+);
 
 module.exports = router;
